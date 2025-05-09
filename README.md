@@ -13,6 +13,9 @@ make sure you have python 3 installed
 
 ```python --version```
 
+create a virtual environment
+```python3 -m venv venv```
+
 enter the virtual python environment where you will run it. do this by running:
 
 ```source venv/bin/activate```
@@ -29,3 +32,15 @@ if you get an error that a package isnt installed, install it:
 
 ```pip install some-package```
 
+
+# Docker
+
+docker app must be open and running
+
+docker buildx create --use
+
+docker buildx build --platform linux/arm/v7 -t my-tflite-app --load .
+
+docker run --rm -it --device /dev/snd my-tflite-app
+
+⚠️ You may need to pass through your microphone/audio device (e.g., /dev/snd) if you're testing audio input.
