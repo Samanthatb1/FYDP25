@@ -1,6 +1,5 @@
+tflite-runtime
 sounddevice
-tensorflow
-tensorflow_hub
-sounddevice
-scipy
+# scipy -  not compatible with arm7 
 vosk
+tensorflow_hub

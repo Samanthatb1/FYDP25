@@ -1,10 +1,9 @@
 import numpy as np
-import tensorflow as tf
-import tensorflow_hub as hub
+from tflite_runtime.interpreter import Interpreter
 import sounddevice as sd
 import time
 import csv
-import scipy.signal
+# import scipy.signal
 import json
 import queue
 import threading
@@ -27,16 +26,21 @@ audio_queue_siren = queue.Queue(maxsize=10)  # Queue for siren detection
 audio_queue_keywords = queue.Queue(maxsize=10)  # Queue for keyword detection
 
 # Load YAMNet model
-print("Loading YAMNet model...")
-yamnet_model = hub.load('https://tfhub.dev/google/yamnet/1')
-print("YAMNet model loaded successfully.")
+print("Loading YAMNet TFLite model...")
+interpreter = Interpreter(model_path="yamnet.tflite")
+interpreter.allocate_tensors()
+input_details = interpreter.get_input_details()
+output_details = interpreter.get_output_details()
+print("YAMNet TFLite model loaded.")
+
 
 # Load class names for YAMNet
 class_names = []
-with tf.io.gfile.GFile('yamnet_class_map.csv', 'r') as f:
+with open('yamnet_class_map.csv', 'r') as f:
     reader = csv.DictReader(f)
     for row in reader:
         class_names.append(row['display_name'])
+
 
 # Load Vosk model for speech recognition
 VOSK_PATH = "vosk-model-small-en-us-0.15"
@@ -81,22 +85,28 @@ def detect_siren():
             audio_data = audio_queue_siren.get()
             
             # Apply the band-pass filter check for siren-like frequencies
-            if not has_siren_frequencies(audio_data, LOW_CUT, HIGH_CUT, RATE):
-                print("NO siren range frequencies")
-                continue  # Skip if no siren-like frequencies
+            # TODO scipy not compatible with arm7
+            # if not has_siren_frequencies(audio_data, LOW_CUT, HIGH_CUT, RATE):
+            #     print("NO siren range frequencies")
+            #     continue  # Skip if no siren-like frequencies
 
             print("siren range frequencies")
 
-            # Run the YAMNet model
-            audio_tensor = tf.convert_to_tensor(audio_data, dtype=tf.float32)
-            scores, _, _ = yamnet_model(audio_tensor)
+            # Preprocess and reshape input
+            audio_input = np.reshape(audio_data, (1, len(audio_data))).astype(np.float32)
+            interpreter.set_tensor(input_details[0]['index'], audio_input)
+
+            # Run inference
+            interpreter.invoke()
+            scores = interpreter.get_tensor(output_details[0]['index'])[0]
 
             # Get top 5 classes
-            top_classes = tf.argsort(scores, axis=-1, direction='DESCENDING')[0][:5]
+            top_classes = np.argsort(scores)[-5:][::-1]
 
-            # print("\nTop 5 predicted classes:")
-            # for i in top_classes:
-            #     print(f'{class_names[i]}: {scores[0][i].numpy():.3f}')
+
+            print("\nTop 5 predicted classes:")
+            for i in top_classes:
+                print(f'{class_names[i]}: {scores[i]:.3f}')
 
             # Check for siren-related classes
             siren_classes = ['Siren', 'Civil defense siren', 'Police car (siren)',
