@@ -153,18 +153,20 @@ def main():
     print("Starting the detection system.")
     start_threads()
 
-    print("devices: ", sd.query_devices(kind='input'))
+    try:
+        with sd.InputStream(
+            channels=1,
+            samplerate=RATE,
+            blocksize=CHUNK,
+            dtype='float32',
+            callback=audio_callback
+        ):
+            print("Listening for sirens and keywords. Press Ctrl+C to stop.")
+            while True:
+                time.sleep(0.1)
+    except KeyboardInterrupt:
+        print("\nStopping detection system...")
 
-    with sd.InputStream(
-        channels=1,
-        samplerate=RATE,
-        blocksize=CHUNK,
-        dtype='float32',
-        callback=audio_callback
-    ):
-        print("Listening for sirens and keywords. Press Ctrl+C to stop.")
-        while True:
-            time.sleep(0.1)
 
 if __name__ == "__main__":
     main()
