@@ -7,11 +7,13 @@ the passenger speech detection is bad because you have to yell.
 
 # How to run:
 
+clone this github repo on your local desktop
+
 make sure you have python 3 installed
 
 ```python --version```
 
-enter the virtual python environment where you will run it
+enter the virtual python environment where you will run it. do this by running:
 
 ```source venv/bin/activate```
 
@@ -27,4 +29,3 @@ if you get an error that a package isnt installed, install it:
 
 ```pip install some-package```
 
-package names are at the top of the main.py file
