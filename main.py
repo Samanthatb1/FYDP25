@@ -67,14 +67,27 @@ recognizer = KaldiRecognizer(vosk_model, RATE)
 
 
 def audio_callback(indata, frames, time_info, status):
-    """Callback function for audio input stream."""
     if status:
-            print("Audio status:", status)
-        
-    print("Callback triggered, received audio.")
+        print("Audio status:", status)
+
+    # Convert to mono float32
     audio_data = indata[:, 0].astype(np.float32)
-    audio_queue_siren.put(audio_data)
-    audio_queue_keywords.put(audio_data)
+
+    # Resample from 44100 to 16000 using linear interpolation
+    input_length = len(audio_data)
+    output_length = int(input_length * 16000 / 44100)
+    resampled_indices = np.linspace(0, input_length - 1, output_length)
+    resampled_data = np.interp(resampled_indices, np.arange(input_length), audio_data).astype(np.float32)
+
+    # Debug: print once every few seconds
+    print(f"Resampled audio length: {len(resampled_data)}")
+
+    # Add to queues
+    if not audio_queue_siren.full():
+        audio_queue_siren.put(resampled_data)
+    if not audio_queue_keywords.full():
+        audio_queue_keywords.put(resampled_data)
+
 
 def detect_siren():
     """Thread to detect sirens using YAMNet."""
@@ -158,12 +171,14 @@ def main():
 
     try:
         with sd.InputStream(
+            device=10,  # use your detected index
             channels=1,
-            samplerate=RATE,
-            blocksize=CHUNK,
+            samplerate=44100.0,  # native mic rate -> TODO change
+            blocksize=int(44100 * 2),  # 2 seconds of audio
             dtype='float32',
             callback=audio_callback
         ):
+
             print("Listening for sirens and keywords. Press Ctrl+C to stop.")
             while True:
                 time.sleep(0.1)
