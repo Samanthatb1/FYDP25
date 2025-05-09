@@ -153,6 +153,9 @@ def main():
     print("Starting the detection system.")
     start_threads()
 
+    device_info = sd.query_devices(kind='input')
+    print("devices: ", device_info)
+
     try:
         with sd.InputStream(
             channels=1,
