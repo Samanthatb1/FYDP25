@@ -44,3 +44,8 @@ docker buildx build --platform linux/arm/v7 -t my-tflite-app --load .
 docker run --rm -it --device /dev/snd my-tflite-app
 
 ⚠️ You may need to pass through your microphone/audio device (e.g., /dev/snd) if you're testing audio input.
+
+# On raspberry Pi
+```sudo apt-get install libopenblas-dev```
+```sudo apt-get install libatlas-base-dev```
+```sudo apt-get install portaudio19-dev```

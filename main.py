@@ -47,23 +47,23 @@ VOSK_PATH = "vosk-model-small-en-us-0.15"
 vosk_model = Model(VOSK_PATH)
 recognizer = KaldiRecognizer(vosk_model, RATE)
 
-def bandpass_filter(audio_data, low_cut, high_cut, sample_rate):
-    """Apply a band-pass filter to the audio data."""
-    nyquist = 0.5 * sample_rate
-    low = low_cut / nyquist
-    high = high_cut / nyquist
-    b, a = scipy.signal.butter(4, [low, high], btype='band')
-    return scipy.signal.filtfilt(b, a, audio_data)
+# def bandpass_filter(audio_data, low_cut, high_cut, sample_rate):
+#     """Apply a band-pass filter to the audio data."""
+#     nyquist = 0.5 * sample_rate
+#     low = low_cut / nyquist
+#     high = high_cut / nyquist
+#     b, a = scipy.signal.butter(4, [low, high], btype='band')
+#     return scipy.signal.filtfilt(b, a, audio_data)
 
-def has_siren_frequencies(audio_data, low_cut, high_cut, sample_rate):
-    """Check if the audio contains siren-like frequencies."""
-    filtered_audio = bandpass_filter(audio_data, low_cut, high_cut, sample_rate)
+# def has_siren_frequencies(audio_data, low_cut, high_cut, sample_rate):
+#     """Check if the audio contains siren-like frequencies."""
+#     filtered_audio = bandpass_filter(audio_data, low_cut, high_cut, sample_rate)
     
-    # Compute the Power (sum of squares) in the filtered signal
-    energy = np.sum(filtered_audio ** 2)
-    print(f"Power in 1–5 kHz: {energy:.2f}")
+#     # Compute the Power (sum of squares) in the filtered signal
+#     energy = np.sum(filtered_audio ** 2)
+#     print(f"Power in 1–5 kHz: {energy:.2f}")
 
-    return energy > 0.01  # Adjust threshold based on testing
+#     return energy > 0.01  # Adjust threshold based on testing
 
 
 def audio_callback(indata, frames, time_info, status):
@@ -93,7 +93,7 @@ def detect_siren():
             print("siren range frequencies")
 
             # Preprocess and reshape input
-            audio_input = np.reshape(audio_data, (1, len(audio_data))).astype(np.float32)
+            audio_input = audio_data.astype(np.float32).flatten()
             interpreter.set_tensor(input_details[0]['index'], audio_input)
 
             # Run inference
