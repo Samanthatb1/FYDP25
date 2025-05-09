@@ -69,18 +69,17 @@ recognizer = KaldiRecognizer(vosk_model, RATE)
 def audio_callback(indata, frames, time_info, status):
     """Callback function for audio input stream."""
     if status:
-        print("Audio status:", status)
-
-    # Flatten and convert to tensor
-    audio_data = indata[:, 0].astype(np.float32)  # Ensure it's mono
-    
-    # Put audio data into both queues
+            print("Audio status:", status)
+        
+    print("Callback triggered, received audio.")
+    audio_data = indata[:, 0].astype(np.float32)
     audio_queue_siren.put(audio_data)
     audio_queue_keywords.put(audio_data)
 
 def detect_siren():
     """Thread to detect sirens using YAMNet."""
     while True:
+        time.sleep(0.01)
         if not audio_queue_siren.empty():
             audio_data = audio_queue_siren.get()
             
@@ -116,7 +115,10 @@ def detect_siren():
 
 def detect_keywords():
     """Thread to detect spoken hot/cold commands using Vosk."""
+    print("queue size: ", audio_queue_keywords.qsize())
+
     while True:
+        time.sleep(0.01)
         if not audio_queue_keywords.empty():
             audio_data = audio_queue_keywords.get()
 
@@ -150,6 +152,8 @@ def main():
     """Main function to set up the audio stream and start threads."""
     print("Starting the detection system.")
     start_threads()
+
+    print("devices: ", sd.query_devices(kind='input'))
 
     with sd.InputStream(
         channels=1,
