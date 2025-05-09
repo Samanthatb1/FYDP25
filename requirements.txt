@@ -1,0 +1,6 @@
+sounddevice
+tensorflow
+tensorflow_hub
+sounddevice
+scipy
+vosk
