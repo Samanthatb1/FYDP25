@@ -75,19 +75,19 @@ def audio_callback(indata, frames, time_info, status):
 
     # Resample from 44100 to 16000 using linear interpolation
     # TODO do i even need this because my macs sample rate is 48000.0 and it worked fine
-    # input_length = len(audio_data)
-    # output_length = int(input_length * 16000 / 44100)
-    # resampled_indices = np.linspace(0, input_length - 1, output_length)
-    # resampled_data = np.interp(resampled_indices, np.arange(input_length), audio_data).astype(np.float32)
+    input_length = len(audio_data)
+    output_length = int(input_length * 16000 / 44100)
+    resampled_indices = np.linspace(0, input_length - 1, output_length)
+    resampled_data = np.interp(resampled_indices, np.arange(input_length), audio_data).astype(np.float32)
 
-    # # Debug: print once every few seconds
-    # print(f"Resampled audio length: {len(resampled_data)}")
+    # Debug: print once every few seconds
+    print(f"Resampled audio length: {len(resampled_data)}")
 
     # Add to queues
     if not audio_queue_siren.full():
-        audio_queue_siren.put(audio_data)
+        audio_queue_siren.put(resampled_data)
     if not audio_queue_keywords.full():
-        audio_queue_keywords.put(audio_data)
+        audio_queue_keywords.put(resampled_data)
 
 
 def detect_siren():
