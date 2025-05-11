@@ -18,8 +18,8 @@ LOW_CUT = 1000  # Hz (low frequency cutoff for siren-like sounds)
 HIGH_CUT = 5000  # Hz (high frequency cutoff for siren-like sounds)
 
 # Keywords for Vosk to recognize
-HOT_PHRASES = ["Hey Uber make it hotter", "hey ober make it hotter"]
-COLD_PHRASES = ["Hey Uber make it colder", "hey ober make it colder"]
+HOT_PHRASES = ["hey Uber make it hotter", "hey ober make it hotter"]
+COLD_PHRASES = ["hey Uber make it colder", "hey ober make it colder"]
 
 # Queue for audio data
 audio_queue_siren = queue.Queue(maxsize=10)  # Queue for siren detection
@@ -75,25 +75,26 @@ def audio_callback(indata, frames, time_info, status):
 
     # Resample from 44100 to 16000 using linear interpolation
     # TODO do i even need this because my macs sample rate is 48000.0 and it worked fine
-    input_length = len(audio_data)
-    output_length = int(input_length * 16000 / 44100)
-    resampled_indices = np.linspace(0, input_length - 1, output_length)
-    resampled_data = np.interp(resampled_indices, np.arange(input_length), audio_data).astype(np.float32)
+    # input_length = len(audio_data)
+    # output_length = int(input_length * 16000 / 44100)
+    # resampled_indices = np.linspace(0, input_length - 1, output_length)
+    # resampled_data = np.interp(resampled_indices, np.arange(input_length), audio_data).astype(np.float32)
 
-    # Debug: print once every few seconds
-    print(f"Resampled audio length: {len(resampled_data)}")
+    # # Debug: print once every few seconds
+    # print(f"Resampled audio length: {len(resampled_data)}")
 
     # Add to queues
     if not audio_queue_siren.full():
-        audio_queue_siren.put(resampled_data)
+        audio_queue_siren.put(audio_data)
     if not audio_queue_keywords.full():
-        audio_queue_keywords.put(resampled_data)
+        audio_queue_keywords.put(audio_data)
 
 
 def detect_siren():
     """Thread to detect sirens using YAMNet."""
     while True:
         time.sleep(0.01)
+        print("listening for siren")
         if not audio_queue_siren.empty():
             audio_data = audio_queue_siren.get()
             
