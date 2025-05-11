@@ -74,6 +74,7 @@ def audio_callback(indata, frames, time_info, status):
     audio_data = indata[:, 0].astype(np.float32)
 
     # Resample from 44100 to 16000 using linear interpolation
+    # TODO do i even need this because my macs sample rate is 48000.0 and it worked fine
     input_length = len(audio_data)
     output_length = int(input_length * 16000 / 44100)
     resampled_indices = np.linspace(0, input_length - 1, output_length)
@@ -162,7 +163,6 @@ def start_threads():
     threading.Thread(target=detect_keywords, daemon=True).start()
 
 def main():
-    """Main function to set up the audio stream and start threads."""
     print("Starting the detection system.")
     start_threads()
 
@@ -171,19 +171,19 @@ def main():
 
     try:
         with sd.InputStream(
-            device=10,  # use your detected index
+            device=10,  # Make sure this is your mic's index
             channels=1,
-            samplerate=44100.0,  # native mic rate -> TODO change
-            blocksize=int(44100 * 2),  # 2 seconds of audio
+            samplerate=44100.0,
+            blocksize=int(44100 * 2),
             dtype='float32',
             callback=audio_callback
         ):
-
-            print("Listening for sirens and keywords. Press Ctrl+C to stop.")
+            print("Input stream started successfully.")
             while True:
                 time.sleep(0.1)
-    except KeyboardInterrupt:
-        print("\nStopping detection system...")
+    except Exception as e:
+        print(f"Failed to start input stream: {e}")
+
 
 
 if __name__ == "__main__":
