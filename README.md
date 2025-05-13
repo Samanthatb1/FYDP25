@@ -6,6 +6,8 @@
 
 # How to run:
 
+*the code is in the /src directory**
+
 clone this github repo on your local desktop
 
 make sure you have python 3 installed. Run this to check
