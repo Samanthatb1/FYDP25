@@ -103,32 +103,44 @@ def audio_callback(indata, frames, time_info, status):
 
 
 def detect_siren():
-    """Thread to detect sirens using YAMNet."""
+    """Thread to detect sirens using YAMNet, with audio trimmed or padded to 15,600 samples."""
+    TARGET_LENGTH = 15600  # YAMNet expects 15600 float32 samples at 16kHz
+
     while True:
         time.sleep(0.01)
         print("listening for siren")
+
         if not audio_queue_siren.empty():
             audio_data = audio_queue_siren.get()
-            
+
             # Apply the band-pass filter check for siren-like frequencies
             # TODO scipy not compatible with arm7
             # if not has_siren_frequencies(audio_data, LOW_CUT, HIGH_CUT, RATE):
             #     print("NO siren range frequencies")
             #     continue  # Skip if no siren-like frequencies
+            # print("siren frequencies detected")
 
-            print("siren range frequencies")
+            # --- Trim or pad to exactly 15600 samples ---
+            if len(audio_data) > TARGET_LENGTH:
+                audio_input = audio_data[:TARGET_LENGTH]
+                print("Trimmed audio to 15600 samples")
+            elif len(audio_data) < TARGET_LENGTH:
+                padding = TARGET_LENGTH - len(audio_data)
+                audio_input = np.pad(audio_data, (0, padding), mode='constant')
+                print(f"Padded audio to 15600 samples with {padding} zeros")
+            else:
+                audio_input = audio_data
 
-            # Preprocess and reshape input
-            audio_input = audio_data.astype(np.float32).flatten()
+            # Preprocess for YAMNet
+            audio_input = audio_input.astype(np.float32).flatten()
             interpreter.set_tensor(input_details[0]['index'], audio_input)
 
             # Run inference
             interpreter.invoke()
             scores = interpreter.get_tensor(output_details[0]['index'])[0]
 
-            # Get top 5 classes
+            # Get top 5 predictions
             top_classes = np.argsort(scores)[-5:][::-1]
-
 
             print("\nTop 5 predicted classes:")
             for i in top_classes:
