@@ -1,3 +1,15 @@
+# TODO
+# Yes, you're absolutely right — your callback is resampling from 44.1 kHz to 16 kHz using linear interpolation. That part is working as intended.
+
+# The mismatch isn’t with the sample rate, but rather with the total number of samples the model expects.
+
+# Breakdown:
+# Your CHUNK = 32000 corresponds to 2 seconds of 16 kHz audio (because 16000 samples/sec × 2 sec = 32000 samples).
+
+# YAMNet expects exactly 15600 samples, which is 0.975 seconds of audio at 16 kHz.
+
+# So even though the sample rate is correct, you're feeding it too many samples, which causes the dimension mismatch.
+
 import numpy as np
 from tflite_runtime.interpreter import Interpreter
 import sounddevice as sd
