@@ -1,22 +1,22 @@
 # Info:
-1. main.py contains both the ambulance AND passenger speech detection
-2. passenger.py contains only the passenger speech detection
-3. ambulance ML model uses tenserflow yamnet. speech detection model uses vosk
-
-the passenger speech detection is bad because you have to yell. 
+1. siren ML model uses tenserflow yamnet
+2. speech detection model uses vosk
+3. the passenger speech detection is bad because you have to yell. 
+4. tensorflow cannot be used on the raspberry pi. we must use tensorflow LITE
 
 # How to run:
 
 clone this github repo on your local desktop
 
-make sure you have python 3 installed
+make sure you have python 3 installed. Run this to check
 
 ```python --version```
 
 create a virtual environment
+
 ```python3 -m venv venv```
 
-enter the virtual python environment where you will run it. do this by running:
+enter the virtual python environment. do this by running:
 
 ```source venv/bin/activate```
 
@@ -26,14 +26,20 @@ install packages
 
 run the file
 
-```python main.py```
+```python src/main.py```
 
 if you get an error that a package isnt installed, install it:
 
 ```pip install some-package```
 
+## Output
+Will look something like 
+
+![alt text](image.png)
 
 # Docker
+
+**Ignore this for now**
 
 docker app must be open and running
 
