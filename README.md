@@ -6,6 +6,7 @@
 
 ## Branches
 main - contains code that can run on your laptop
+
 raspberry_pi - contains code that can run on the pi / mimic running on the pi
 
 # How to run:
