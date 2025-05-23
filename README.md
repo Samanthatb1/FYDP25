@@ -4,6 +4,10 @@
 3. the passenger speech detection is bad because you have to yell. 
 4. tensorflow cannot be used on the raspberry pi. we must use tensorflow LITE
 
+## Branches
+main - contains code that can run on your laptop
+raspberry_pi - contains code that can run on the pi / mimic running on the pi
+
 # How to run:
 
 *the code is in the /src directory**

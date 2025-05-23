@@ -42,4 +42,4 @@ def detect_keywords(audio_queue_keywords):
                 if any(phrase in text.lower() for phrase in HOT_PHRASES):
                     print("🔥 Command Detected: Make it Hotter 🔥")
                 elif any(phrase in text.lower() for phrase in COLD_PHRASES):
-                    print("❄️ Command Detected: Make it Colder ❄️")
+                    print("🥶 Command Detected: Make it Colder 🥶")
