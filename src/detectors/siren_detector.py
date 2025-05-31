@@ -13,7 +13,9 @@ from constants import RATE
 
 # Load YAMNet model
 print("Loading YAMNet model...")
-yamnet_model = hub.load('https://tfhub.dev/google/yamnet/1')
+local_model_path = "models/yamnet/9616fd04ec2360621642ef9455b84f4b668e219e"
+yamnet_model = hub.load(local_model_path)
+# yamnet_model = hub.load('https://tfhub.dev/google/yamnet/1')
 print("YAMNet model loaded successfully.")
 
 # Load class names for YAMNet
