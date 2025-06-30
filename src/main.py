@@ -20,11 +20,20 @@ def audio_callback(indata, frames, time_info, status):
 
     # Flatten and convert to tensor
     audio_data = indata[:, 0].astype(np.float32)  # Ensure it's mono
+
+    if len(audio_data) < 64:
+        print("⚠️ Audio buffer too short")
+        return False
+    if np.all(audio_data == 0):
+        print("⚠️ Empty audio data")
+        return False
     
     # Put audio data into both queues
-    audio_queue_siren.put(audio_data)
-    audio_queue_keywords.put(audio_data)
-
+    try:
+        audio_queue_siren.put_nowait(audio_data)
+        audio_queue_keywords.put_nowait(audio_data)
+    except queue.Full:
+        print("[Audio Callback] ⚠️ Queue full, skipping audio frame")
 
 def start_threads():
     """Start detection threads for siren and keywords."""
