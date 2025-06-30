@@ -4,6 +4,7 @@ import os
 import json
 from vosk import Model, KaldiRecognizer
 from rapidfuzz import fuzz
+from image_display import show_command_image
 
 # Add the parent directory to the path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -52,6 +53,7 @@ def detect_keywords(audio_queue_keywords):
 
                     if command:
                         print(f"COMMAND DETECTED: {command}")
+                        show_command_image(command)
                             
                     else:
                         print("WAKEUP PHRASE DETECTED BUT NO KNOWN COMMAND MATCHED")

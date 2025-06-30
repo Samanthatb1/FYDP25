@@ -4,6 +4,8 @@ import time
 import queue
 import threading
 
+import os
+
 from detectors.siren_detector import detect_siren
 from detectors.speech_detector import detect_keywords
 
