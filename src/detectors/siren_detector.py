@@ -1,24 +1,24 @@
 import numpy as np
-import sys
 import os
 import csv
-import tensorflow as tf
-import tensorflow_hub as hub
+import sys
+from queue import Queue
+import tflite_runtime.interpreter as tflite
 
-# Add the parent directory to the path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from bandpass_filter import has_siren_frequencies 
+from bandpass_filter import has_siren_frequencies
 from constants import RATE
 
-# Load YAMNet model
-print("Loading YAMNet model...")
-local_model_path = "models/yamnet/9616fd04ec2360621642ef9455b84f4b668e219e"
-yamnet_model = hub.load(local_model_path)
-# yamnet_model = hub.load('https://tfhub.dev/google/yamnet/1')
-print("YAMNet model loaded successfully.")
+# Load TFLite model
+print("Loading YAMNet TFLite model...")
+interpreter = tflite.Interpreter(model_path="models/yamnet/yamnet.tflite")
+interpreter.allocate_tensors()
+input_details = interpreter.get_input_details()
+output_details = interpreter.get_output_details()
+print("YAMNet TFLite model loaded successfully.")
 
-# Load class names for YAMNet
+# Load class names
 class_names = []
 with open('models/yamnet_class_map.csv', 'r') as f:
     reader = csv.DictReader(f)
@@ -38,16 +38,20 @@ def detect_siren(audio_queue_siren):
 
             print("siren range frequencies")
 
-            # Run the YAMNet model
-            audio_tensor = tf.convert_to_tensor(audio_data, dtype=tf.float32)
-            scores, _, _ = yamnet_model(audio_tensor)
+            # Preprocess for YAMNet
+            audio_tensor = audio_data.astype(np.float32).flatten()
+            interpreter.set_tensor(input_details[0]['index'], audio_tensor)
+
+            # Run inference
+            interpreter.invoke()
+            scores = interpreter.get_tensor(output_details[0]['index'])[0]
 
             # Get top 5 classes
-            top_classes = tf.argsort(scores, axis=-1, direction='DESCENDING')[0][:5]
-
+            top_classes = np.argsort(scores)[-5:][::-1]
+            
             print("\nTop 5 predicted classes:")
             for i in top_classes:
-                print(f'{class_names[i]}: {scores[0][i].numpy():.3f}')
+                print(f'{class_names[i]}: {scores[0][i]:.3f}')
 
             # Check for siren-related classes
             siren_classes = ['Siren', 'Civil defense siren', 'Police car (siren)',
