@@ -2,6 +2,7 @@ import numpy as np
 import sys
 import os
 import csv
+import queue
 import tensorflow as tf
 import tensorflow_hub as hub
 
@@ -25,18 +26,19 @@ with open('models/yamnet_class_map.csv', 'r') as f:
     for row in reader:
         class_names.append(row['display_name'])
 
-def detect_siren(audio_queue_siren):
+
+def detect_siren(audio_queue_siren, command_queue=None):
     """Thread to detect sirens using YAMNet."""
     while True:
         if not audio_queue_siren.empty():
             audio_data = audio_queue_siren.get()
-            
-            # Apply the band-pass filter check for siren-like frequencies
+
+            # Apply the singal analysis filter check for siren-like frequencies
             if not has_siren_frequencies(audio_data, RATE):
-                print("NO siren range frequencies")
+                print("👂 No siren range frequencies")
                 continue  # Skip if no siren-like frequencies
 
-            print("siren range frequencies")
+            print("👂 Siren range frequencies")
 
             # Run the YAMNet model
             audio_tensor = tf.convert_to_tensor(audio_data, dtype=tf.float32)
@@ -45,12 +47,18 @@ def detect_siren(audio_queue_siren):
             # Get top 5 classes
             top_classes = tf.argsort(scores, axis=-1, direction='DESCENDING')[0][:5]
 
-            print("\nTop 5 predicted classes:")
-            for i in top_classes:
-                print(f'{class_names[i]}: {scores[0][i].numpy():.3f}')
+            # print("Model Classified: ")
+            # for i in top_classes:
+            #     print(f'{class_names[i]}: {scores[0][i].numpy():.3f}')
 
             # Check for siren-related classes
             siren_classes = ['Siren', 'Civil defense siren', 'Police car (siren)',
-                            'Ambulance (siren)', 'Fire engine, fire truck (siren)']
+                            'Ambulance (siren)', 'Fire engine, fire truck (siren)', 
+                            'Alarm', 'Buzzer', 'Effects unit', 'Emergency vehicle']
             if any(class_names[i] in siren_classes for i in top_classes):
-                print("🚨 ALERT: Potential siren detected!")
+                print("🚨 ALERT: Siren Detected! 🚨")
+                if command_queue is not None:
+                    try:
+                        command_queue.put_nowait("siren detected")
+                    except queue.Full:
+                        print("Command queue full; dropping 'siren detected' notification.")
