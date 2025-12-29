@@ -9,13 +9,27 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from constants import RATE
 
 # Keywords for Vosk to recognize
-HOT_PHRASES = ["Hey Uber make it hotter", "hey ober make it hotter"]
-COLD_PHRASES = ["Hey Uber make it colder", "hey ober make it colder"]
+KEY_PHRASES = {
+    "hey driver make it hotter": "🔥 Command Detected: Make it Hotter 🔥",
+    "hey driver make it colder": "🥶 Command Detected: Make it Colder 🥶",
+    "hey driver stop here": "❌ Command Detected: Stop Here ❌",
+    "hey driver open the trunk": "🚗 Command Detected: Open The Trunk 🚗"
+}
 
 # Load Vosk model for speech recognition
 VOSK_PATH = "models/vosk-model-small-en-us-0.15"
 vosk_model = Model(VOSK_PATH)
 recognizer = KaldiRecognizer(vosk_model, RATE)
+
+def process_text(text):
+    if text in ("", " "):
+        print("👂 No Speech Detected")
+        return
+
+    if text in KEY_PHRASES:
+        print(KEY_PHRASES[text])
+    else:
+        print("Non command speech detected: ", text)
 
 def detect_keywords(audio_queue_keywords):
     """Thread to detect spoken hot/cold commands using Vosk."""
@@ -23,11 +37,13 @@ def detect_keywords(audio_queue_keywords):
         if not audio_queue_keywords.empty():
             audio_data = audio_queue_keywords.get()
 
-            # Process the audio for speech recognition
-            result = None  # Initialize result variable
+            result = None 
+            # Vosk expects 16 bit integers
             int16_audio = (audio_data * 32767).astype(np.int16)
+            # Sent to vosk
             if recognizer.AcceptWaveform(int16_audio.tobytes()):
                 result = json.loads(recognizer.Result())
+            # else case is when Vosk wasnt able to determine a complete sentence 
             else:
                 # Log partial recognition if it's not a full match
                 partial_result = json.loads(recognizer.PartialResult())
@@ -35,11 +51,5 @@ def detect_keywords(audio_queue_keywords):
 
             # Only proceed if we have a valid result
             if result:
-                text = result.get("text", "")
-                print(f"Processing recognized text: {text}")
-
-                # Check if any hot or cold phrase is detected
-                if any(phrase in text.lower() for phrase in HOT_PHRASES):
-                    print("🔥 Command Detected: Make it Hotter 🔥")
-                elif any(phrase in text.lower() for phrase in COLD_PHRASES):
-                    print("🥶 Command Detected: Make it Colder 🥶")
+                text = result.get("text", "").lower()
+                process_text(text)

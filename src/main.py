@@ -18,7 +18,8 @@ def audio_callback(indata, frames, time_info, status):
     if status:
         print("Audio status:", status)
 
-    # Flatten and convert to tensor
+    # Flatten and convert for tensor
+    # audio data stores CHUNK number of samples that store the amplitude 
     audio_data = indata[:, 0].astype(np.float32)  # Ensure it's mono
     
     # Put audio data into both queues
