@@ -2,6 +2,7 @@ import numpy as np
 import sys
 import os
 import csv
+import queue
 import tensorflow as tf
 import tensorflow_hub as hub
 
@@ -25,12 +26,13 @@ with open('models/yamnet_class_map.csv', 'r') as f:
     for row in reader:
         class_names.append(row['display_name'])
 
-def detect_siren(audio_queue_siren):
+
+def detect_siren(audio_queue_siren, command_queue=None):
     """Thread to detect sirens using YAMNet."""
     while True:
         if not audio_queue_siren.empty():
             audio_data = audio_queue_siren.get()
-            
+
             # Apply the singal analysis filter check for siren-like frequencies
             if not has_siren_frequencies(audio_data, RATE):
                 print("👂 No siren range frequencies")
@@ -55,3 +57,8 @@ def detect_siren(audio_queue_siren):
                             'Alarm', 'Buzzer', 'Effects unit', 'Emergency vehicle']
             if any(class_names[i] in siren_classes for i in top_classes):
                 print("🚨 ALERT: Siren Detected! 🚨")
+                if command_queue is not None:
+                    try:
+                        command_queue.put_nowait("siren detected")
+                    except queue.Full:
+                        print("Command queue full; dropping 'siren detected' notification.")

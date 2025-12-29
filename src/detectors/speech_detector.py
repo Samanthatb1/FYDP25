@@ -2,6 +2,7 @@ import numpy as np
 import sys
 import os
 import json
+import queue
 from vosk import Model, KaldiRecognizer
 from rapidfuzz import fuzz
 
@@ -55,7 +56,7 @@ VOSK_PATH = "models/vosk-model-small-en-us-0.15"
 vosk_model = Model(VOSK_PATH)
 recognizer = KaldiRecognizer(vosk_model, RATE)
 
-def detect_keywords(audio_queue_keywords):
+def detect_keywords(audio_queue_keywords, command_queue=None):
     """Thread to detect spoken commands using Vosk with fuzzy matching."""
     while True:
         if not audio_queue_keywords.empty():
@@ -82,6 +83,11 @@ def detect_keywords(audio_queue_keywords):
 
                     if command:
                         print(f"COMMAND DETECTED: {command}")
+                        if command_queue is not None:
+                            try:
+                                command_queue.put_nowait(command)
+                            except queue.Full:
+                                print(f"Command queue full; dropping '{command}'.")
                     else:
                         print("WAKEUP PHRASE DETECTED BUT NO KNOWN COMMAND MATCHED")
 

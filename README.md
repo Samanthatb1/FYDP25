@@ -23,6 +23,10 @@ create a virtual environment
 
 ```python3 -m venv venv```
 
+NOTE: Python Tkinter must be installed for the UI -> `brew install python-tk@3.12`
+if using tkinter:
+```/opt/homebrew/opt/python@3.12/bin/python3.12 -m venv venv```
+
 enter the virtual python environment. do this by running:
 
 ```source venv/bin/activate```
@@ -30,6 +34,7 @@ enter the virtual python environment. do this by running:
 install packages
 
 ```pip install -r requirements.txt```
+
 
 run the file
 
