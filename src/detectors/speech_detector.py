@@ -79,24 +79,50 @@ def detect_keywords(audio_queue_keywords, command_queue=None):
 
                 # Check if wakeup phrase is in the text
                 if any(wake in text for wake in WAKEUP_PHRASES):
-                    command = get_command(text)
+                    commands = get_commands(text)
 
-                    if command:
-                        print(f"COMMAND DETECTED: {command}")
-                        if command_queue is not None:
-                            try:
-                                command_queue.put_nowait(command)
-                            except queue.Full:
-                                print(f"Command queue full; dropping '{command}'.")
+                    if commands:
+                        for command in commands:
+                            print(f"COMMAND DETECTED: {command}")
+                            if command_queue is not None:
+                                try:
+                                    command_queue.put_nowait(command)
+                                except queue.Full:
+                                    print(f"Command queue full; dropping '{command}'.")
                     else:
                         print("WAKEUP PHRASE DETECTED BUT NO KNOWN COMMAND MATCHED")
 
 
-# Use fuzz to do fuzzy matching for phrases 
-def get_command(text, threshold=80):
+# Use fuzz to do fuzzy matching for phrases and return all commands in spoken order
+def get_commands(text, threshold=80):
+    candidates = []
     for command, phrases in KEYWORDS.items():
+        best_pos = None
+
         for phrase in phrases:
+            # Prefer explicit substring matches to retain position
+            if phrase in text:
+                pos = text.find(phrase)
+                best_pos = pos if best_pos is None else min(best_pos, pos)
+                continue
+
+            # Fallback to fuzzy match; approximate position using first word
             similarity = fuzz.partial_ratio(text, phrase)
             if similarity > threshold:
-                return command
-    return None
+                anchor = phrase.split()[0] if phrase.split() else phrase
+                pos = text.find(anchor) if anchor in text else len(text)
+                best_pos = pos if best_pos is None else min(best_pos, pos)
+
+        if best_pos is not None:
+            candidates.append((best_pos, command))
+
+    # Sort by position to preserve spoken order; drop duplicates while keeping order
+    candidates.sort(key=lambda item: item[0])
+    ordered_commands = []
+    seen = set()
+    for _, command in candidates:
+        if command not in seen:
+            ordered_commands.append(command)
+            seen.add(command)
+
+    return ordered_commands
