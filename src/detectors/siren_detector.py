@@ -31,6 +31,8 @@ with open('models/yamnet_class_map.csv', 'r') as f:
 def detect_siren(audio_queue_siren, command_queue=None):
     """Thread to detect sirens using YAMNet."""
     # Throttle how often we enqueue siren alerts to avoid flooding the UI queue.
+    # This is necessary because if a siren is played for 5 seconds, that means originally
+    # we'd add 25 siren commands to the queue, so it essentially hogs the queue
     SIREN_ALERT_COOLDOWN = 3.0  # seconds between queued siren alerts
     last_alert_time = 0.0
 
