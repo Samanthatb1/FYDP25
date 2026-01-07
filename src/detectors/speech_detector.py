@@ -2,6 +2,7 @@ import numpy as np
 import sys
 import os
 import json
+import time
 import queue
 from vosk import Model, KaldiRecognizer
 from rapidfuzz import fuzz
@@ -86,7 +87,7 @@ def detect_keywords(audio_queue_keywords, command_queue=None):
                             print(f"COMMAND DETECTED: {command}")
                             if command_queue is not None:
                                 try:
-                                    command_queue.put_nowait(command)
+                                    command_queue.put_nowait((1, time.monotonic(), command))
                                 except queue.Full:
                                     print(f"Command queue full; dropping '{command}'.")
                     else:

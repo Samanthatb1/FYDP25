@@ -3,6 +3,7 @@ import sys
 import os
 import csv
 import queue
+import time
 import tensorflow as tf
 import tensorflow_hub as hub
 
@@ -29,6 +30,10 @@ with open('models/yamnet_class_map.csv', 'r') as f:
 
 def detect_siren(audio_queue_siren, command_queue=None):
     """Thread to detect sirens using YAMNet."""
+    # Throttle how often we enqueue siren alerts to avoid flooding the UI queue.
+    SIREN_ALERT_COOLDOWN = 3.0  # seconds between queued siren alerts
+    last_alert_time = 0.0
+
     while True:
         if not audio_queue_siren.empty():
             audio_data = audio_queue_siren.get()
@@ -58,7 +63,11 @@ def detect_siren(audio_queue_siren, command_queue=None):
             if any(class_names[i] in siren_classes for i in top_classes):
                 print("🚨 ALERT: Siren Detected! 🚨")
                 if command_queue is not None:
+                    now = time.monotonic()
+                    if now - last_alert_time < SIREN_ALERT_COOLDOWN:
+                        continue
+                    last_alert_time = now
                     try:
-                        command_queue.put_nowait("siren detected")
+                        command_queue.put_nowait((0, now, "siren detected"))
                     except queue.Full:
                         print("Command queue full; dropping 'siren detected' notification.")

@@ -93,12 +93,12 @@ def run_command_display(command_queue, image_dir=None):
 
     def update_display():
         if not command_queue.empty():
-            command_name = command_queue.get()
+            _, _, command_name = command_queue.get()
             img = load_image_for(command_name)
             label.config(image=img)
             label.image = img
             # Show siren alert briefly; other commands stay visible longer.
-            display_duration_ms = 5000 if command_name == "siren detected" else 10000
+            display_duration_ms = 2500 if command_name == "siren detected" else 10000
             root.after(display_duration_ms, update_display)
         else:
             if label.image != blank_image:
@@ -115,7 +115,7 @@ def main():
     """Main entry point to set up audio, detection, and command display."""
     print("Starting the detection system.")
 
-    command_queue = queue.Queue(maxsize=20)
+    command_queue = queue.PriorityQueue(maxsize=20)
     start_detection_threads(command_queue)
 
     threading.Thread(target=start_audio_stream, daemon=True).start()
