@@ -49,16 +49,5 @@ Will look something like
 
 ![alt text](image.png)
 
-# Docker
-
-**Ignore this for now**
-
-docker app must be open and running
-
-docker buildx create --use
-
-docker buildx build --platform linux/arm/v7 -t my-tflite-app --load .
-
-docker run --rm -it --device /dev/snd my-tflite-app
-
-⚠️ You may need to pass through your microphone/audio device (e.g., /dev/snd) if you're testing audio input.
+## Auto Startup
+to stop the program, run `sudo systemctl stop alertrider.service`
