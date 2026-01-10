@@ -50,4 +50,4 @@ Will look something like
 ![alt text](image.png)
 
 ## Auto Startup
-to stop the program, run `sudo systemctl stop alertrider.service`
+to stop the program, run `systemctl --user stop alertrider.service`
