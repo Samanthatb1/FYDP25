@@ -5,6 +5,7 @@ import queue
 import threading
 from pathlib import Path
 import tkinter as tk
+from PIL import Image, ImageTk
 
 from detectors.siren_detector import detect_siren
 from detectors.speech_detector import detect_keywords
@@ -58,17 +59,31 @@ def run_command_display(command_queue, image_dir=None):
 
     The image file must match the command name with a .png extension.
     When no command is waiting, blank.png (or a generated placeholder) is shown.
+    Images are automatically resized to fit the screen.
+    
+    Args:
+        command_queue: Queue containing commands to display
+        image_dir: Directory containing image files
     """
 
     root = tk.Tk()
     root.title("Command Display")
+    
+    # Automatically detect screen size
+    screen_width = root.winfo_screenwidth()
+    screen_height = root.winfo_screenheight()
+    display_size = (screen_width, screen_height)
+    print(f"Detected screen size: {screen_width}x{screen_height}")
 
     image_dir = Path(image_dir) if image_dir else Path(__file__).resolve().parent.parent
     cache = {}
     image_aliases = {"siren detected": "siren"}
 
     blank_path = image_dir / "blank.png"
-    blank_image = tk.PhotoImage(file=str(blank_path))
+    # Load and resize blank image
+    pil_blank = Image.open(str(blank_path))
+    pil_blank = pil_blank.resize(display_size, Image.Resampling.LANCZOS)
+    blank_image = ImageTk.PhotoImage(pil_blank)
     cache["blank"] = blank_image
 
     label = tk.Label(root)
@@ -83,7 +98,10 @@ def run_command_display(command_queue, image_dir=None):
 
         image_path = image_dir / f"{key}.png"
         if image_path.exists():
-            img = tk.PhotoImage(file=str(image_path))
+            # Load and resize image using PIL
+            pil_img = Image.open(str(image_path))
+            pil_img = pil_img.resize(display_size, Image.Resampling.LANCZOS)
+            img = ImageTk.PhotoImage(pil_img)
         else:
             print(f"No image found for '{command_name}' at {image_path}, using blank.")
             img = blank_image
@@ -98,7 +116,7 @@ def run_command_display(command_queue, image_dir=None):
             label.config(image=img)
             label.image = img
             # Show siren alert briefly; other commands stay visible longer.
-            display_duration_ms = 2500 if command_name == "siren detected" else 10000
+            display_duration_ms = 3000 if command_name == "siren detected" else 10000
             root.after(display_duration_ms, update_display)
         else:
             if label.image != blank_image:
