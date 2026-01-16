@@ -69,9 +69,6 @@ def run_command_display(command_queue, image_dir=None):
     root = tk.Tk()
     root.title("Command Display")
     
-    # Make fullscreen without title bar/window decorations
-    root.attributes('-fullscreen', True)
-    
     # Automatically detect screen size
     screen_width = root.winfo_screenwidth()
     screen_height = root.winfo_screenheight()
