@@ -59,9 +59,10 @@ def detect_siren(audio_queue_siren, command_queue=None):
             #     print(f'{class_names[i]}: {scores[0][i].numpy():.3f}')
 
             # Check for siren-related classes
-            siren_classes = ['Siren', 'Civil defense siren', 'Police car (siren)',
+            siren_classes = set(['Siren', 'Civil defense siren', 'Police car (siren)',
                             'Ambulance (siren)', 'Fire engine, fire truck (siren)', 
-                            'Alarm', 'Buzzer', 'Effects unit', 'Emergency vehicle']
+                            'Alarm', 'Buzzer', 'Effects unit', 'Emergency vehicle', 
+                            'Caterwaul', 'Cat', 'Meow', 'Sound effect', 'Vehicle horn, car horn, honking'])
             if any(class_names[i] in siren_classes for i in top_classes):
                 print("🚨 ALERT: Siren Detected! 🚨")
                 if command_queue is not None:

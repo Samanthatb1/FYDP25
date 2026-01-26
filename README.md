@@ -51,3 +51,11 @@ Will look something like
 
 ## Auto Startup
 to stop the program, run `systemctl --user stop alertrider.service`
+
+# Installed Vosk model
+```
+curl -L -o vosk-model-en-us-0.22.zip https://alphacephei.com/vosk/models/vosk-model-en-us-0.22.zip
+
+unzip vosk-model-en-us-0.22.zip -d models/
+
+```
