@@ -47,7 +47,7 @@ KEYWORDS = {
 }
 
 # Load Vosk model for speech recognition
-VOSK_PATH = "models/vosk-model-en-us-0.22" # large model
+VOSK_PATH = "models/vosk-model-small-en-us-0.15"  # small model for Pi compatibility
 vosk_model = Model(VOSK_PATH)
 recognizer = KaldiRecognizer(vosk_model, RATE)
 

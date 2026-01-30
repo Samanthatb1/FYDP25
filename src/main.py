@@ -12,6 +12,10 @@ from detectors.speech_detector import detect_keywords
 
 from constants import RATE, CHUNK
 
+# Software gain for microphones without hardware gain control
+# Increase this if the mic is too quiet (try 4.0, 5.0, etc.)
+AUDIO_GAIN = 3.0
+
 # Queue for audio data
 audio_queue_siren = queue.Queue(maxsize=10)  # Queue for siren detection
 audio_queue_keywords = queue.Queue(maxsize=10)  # Queue for keyword detection
@@ -24,6 +28,10 @@ def audio_callback(indata, frames, time_info, status):
     # Flatten and convert for tensor
     # audio data stores CHUNK number of samples that store the amplitude 
     audio_data = indata[:, 0].astype(np.float32)  # Ensure it's mono
+    
+    # Apply software gain boost
+    audio_data = audio_data * AUDIO_GAIN
+    audio_data = np.clip(audio_data, -1.0, 1.0)  # Prevent clipping
 
     # Put audio data into both queues
     audio_queue_siren.put(audio_data)
@@ -42,6 +50,7 @@ def start_detection_threads(command_queue):
 
 def start_audio_stream():
     """Start the audio stream on a background thread."""
+    # Use device 2 (USB audio CODEC) instead of default MacBook Pro Microphone
     with sd.InputStream(
         channels=1,
         samplerate=RATE,
@@ -49,7 +58,7 @@ def start_audio_stream():
         dtype="float32",
         callback=audio_callback,
     ):
-        print("Listening for sirens and keywords. Press Ctrl+C to stop.")
+        print("Listening for sirens and keywords using USB microphone (device 2).")
         while True:
             time.sleep(0.1)
 
