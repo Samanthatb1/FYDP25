@@ -20,28 +20,20 @@ WAKEUP_PHRASES = [
 
 KEYWORDS = {
     "hotter": [
-        "make it warmer",
-        "may get warmer",
+        "turn up the heat",       
     ],
     "colder": [
-        "make it colder",
-        "may get colder",
+        "make it cooler",    
     ],
     "stop": [
-        "stop here",
-        "you can stop",
         "pull over",
-        "this is fine",
+        "pullover",          # Vosk merges the two words ~40% of the time
     ],
     "thanks": [
-        "thank you",
-        "thanks",
-        "appreciate it",
+        "thank you",        
     ],
     "trunk": [
-        "open the trunk",
-        "pop the trunk",
-        "can you open the back",
+        "open the trunk",    
     ],
     "wakeup_no_cmd": []
 }

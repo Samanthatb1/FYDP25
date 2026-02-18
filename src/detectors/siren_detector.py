@@ -60,17 +60,23 @@ def detect_siren(audio_queue_siren, command_queue=None):
 
             # Check for siren-related classes
             siren_classes = set(['Siren', 'Civil defense siren', 'Police car (siren)',
-                            'Ambulance (siren)', 'Fire engine, fire truck (siren)', 
-                            'Alarm', 'Buzzer', 'Effects unit', 'Emergency vehicle', 
-                            'Caterwaul', 'Cat', 'Meow', 'Sound effect', 'Vehicle horn, car horn, honking'])
-            if any(class_names[i] in siren_classes for i in top_classes):
-                print("🚨 ALERT: Siren Detected! 🚨")
-                if command_queue is not None:
-                    now = time.monotonic()
-                    if now - last_alert_time < SIREN_ALERT_COOLDOWN:
-                        continue
-                    last_alert_time = now
-                    try:
-                        command_queue.put_nowait((0, now, "siren detected"))
-                    except queue.Full:
-                        print("Command queue full; dropping 'siren detected' notification.")
+                            'Ambulance (siren)', 'Fire engine, fire truck (siren)',
+                            'Alarm', 'Buzzer', 'Emergency vehicle',
+                            'Vehicle horn, car horn, honking'])
+
+            # Require a minimum confidence score so YAMNet must be fairly certain,
+            # not just vaguely placing a siren class somewhere in the top 5.
+            SIREN_SCORE_THRESHOLD = 0.15
+
+            if any(class_names[i] in siren_classes and scores[0][i].numpy() > SIREN_SCORE_THRESHOLD
+                for i in top_classes):
+                    print("🚨 ALERT: Siren Detected! 🚨")
+                    if command_queue is not None:
+                        now = time.monotonic()
+                        if now - last_alert_time < SIREN_ALERT_COOLDOWN:
+                            continue
+                        last_alert_time = now
+                        try:
+                            command_queue.put_nowait((0, now, "siren detected"))
+                        except queue.Full:
+                            print("Command queue full; dropping 'siren detected' notification.")

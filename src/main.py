@@ -125,7 +125,7 @@ def run_command_display(command_queue, image_dir=None):
             label.config(image=img)
             label.image = img
             # Show siren alert briefly; other commands stay visible longer.
-            display_duration_ms = 3000 if command_name == "siren detected" else 10000
+            display_duration_ms = 4000 if command_name == "siren detected" else 10000
             root.after(display_duration_ms, update_display)
         else:
             if label.image != blank_image:
