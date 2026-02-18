@@ -1,0 +1,32 @@
+1. use the new vosk model (bigger one) - DONE
+
+2. increased chunk size to 0.6 seconds - DONE
+
+2.5 Lower the Fuzzy Matching Threshold (from 80 to 70)- DONE
+
+3. Processing partial results for wakeup phrase detection - DONE
+Lines 62-64: The code checks for wakeup phrases in partial results. In a noisy car, partial text can be garbled and trigger false matches, or the wakeup phrase may be missed entirely.
+Fix: Only check for wakeup phrases when AcceptWaveform returns True (final result), not on partial results.
+
+4. Add Noise Reduction Preprocessing (noisereduce) - i tried and it made it worse
+
+5. Add Automatic Gain Control (AGC) / Normalization - Back seat passengers are quieter. Normalize the audio to boost low signals:
+def normalize_audio(audio_data):
+    max_val = np.max(np.abs(audio_data))
+    if max_val > 0.01:  # Avoid amplifying silence
+        return audio_data / max_val * 0.9
+    return audio_data
+
+
+6. Use a Speech-Focused Bandpass Filter - Human speech is concentrated in 300Hz-3400Hz. Apply a bandpass filter to remove low-frequency road rumble and high-frequency noise:
+from scipy.signal import butter, sosfilt
+def speech_bandpass_filter(audio, rate, lowcut=300, highcut=3400, order=5):
+    sos = butter(order, [lowcut, highcut], btype='band', fs=rate, output='sos')
+    return sosfilt(sos, audio)
+
+7. Use a Better Microphone Setup
+Hardware changes that would help significantly:
+Directional microphone pointed toward the back seat
+Microphone array with beamforming (e.g., ReSpeaker USB Mic Array)
+Second microphone mounted near the back seat
+Lavalier microphone for the back seat passenger
