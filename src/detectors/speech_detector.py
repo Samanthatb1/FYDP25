@@ -34,8 +34,8 @@ KEYWORDS = {
     ],
     "trunk": [
         "open the trunk",    
-    ],
-    "wakeup_no_cmd": []
+    ]#,
+    # "wakeup_no_cmd": []
 }
 
 # Load Vosk model for speech recognition
