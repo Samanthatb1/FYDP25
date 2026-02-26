@@ -78,6 +78,7 @@ def run_command_display(command_queue, image_dir=None):
     root = tk.Tk()
     root.title("Command Display")
     root.attributes('-fullscreen', True)
+    root.config(cursor='none')
 
     # Automatically detect screen size
     screen_width = root.winfo_screenwidth()
