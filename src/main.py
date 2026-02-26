@@ -3,6 +3,8 @@ import sounddevice as sd
 import time
 import queue
 import threading
+import signal
+import sys
 from pathlib import Path
 import tkinter as tk
 from PIL import Image, ImageTk
@@ -140,8 +142,15 @@ def run_command_display(command_queue, image_dir=None):
     root.mainloop()
 
 
+def handle_exit(sig, frame):
+    print("Shutting down cleanly...")
+    sys.exit(0)
+
+
 def main():
     """Main entry point to set up audio, detection, and command display."""
+    signal.signal(signal.SIGINT, handle_exit)
+    signal.signal(signal.SIGTERM, handle_exit)
     print("Starting the detection system.")
 
     command_queue = queue.PriorityQueue(maxsize=20)
