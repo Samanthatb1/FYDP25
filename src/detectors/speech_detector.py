@@ -16,6 +16,7 @@ WAKEUP_PHRASES = [
     "excuse me driver",
     "excuse me the driver",
     "the excuse me driver",
+    "hey driver"
 ]
 
 KEYWORDS = {
