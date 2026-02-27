@@ -71,10 +71,6 @@ def detect_keywords(audio_queue_keywords, command_queue=None):
                                 print(f"Command queue full; dropping '{command}'.")
                 else:
                     print("WAKEUP PHRASE DETECTED BUT NO KNOWN COMMAND MATCHED")
-                    try:
-                        command_queue.put_nowait((1, time.monotonic(), "wakeup_no_cmd"))
-                    except queue.Full:
-                        print(f"Command queue full; dropping '{command}'.")
         else:
             # Partial result - don't process, just log for debugging
             partial_result = json.loads(recognizer.PartialResult())
