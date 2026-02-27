@@ -37,46 +37,45 @@ def detect_siren(audio_queue_siren, command_queue=None):
     last_alert_time = 0.0
 
     while True:
-        if not audio_queue_siren.empty():
-            audio_data = audio_queue_siren.get()
+        audio_data = audio_queue_siren.get()
 
-            # Apply the singal analysis filter check for siren-like frequencies
-            if not has_siren_frequencies(audio_data, RATE):
-                print("👂 No siren range frequencies")
-                continue  # Skip if no siren-like frequencies
+        # Apply the singal analysis filter check for siren-like frequencies
+        if not has_siren_frequencies(audio_data, RATE):
+            print("👂 No siren range frequencies")
+            continue  # Skip if no siren-like frequencies
 
-            print("👂 Siren range frequencies")
+        print("👂 Siren range frequencies")
 
-            # Run the YAMNet model
-            audio_tensor = tf.convert_to_tensor(audio_data, dtype=tf.float32)
-            scores, _, _ = yamnet_model(audio_tensor)
+        # Run the YAMNet model
+        audio_tensor = tf.convert_to_tensor(audio_data, dtype=tf.float32)
+        scores, _, _ = yamnet_model(audio_tensor)
 
-            # Get top 5 classes
-            top_classes = tf.argsort(scores, axis=-1, direction='DESCENDING')[0][:5]
+        # Get top 5 classes
+        top_classes = tf.argsort(scores, axis=-1, direction='DESCENDING')[0][:5]
 
-            # print("Model Classified: ")
-            # for i in top_classes:
-            #     print(f'{class_names[i]}: {scores[0][i].numpy():.3f}')
+        # print("Model Classified: ")
+        # for i in top_classes:
+        #     print(f'{class_names[i]}: {scores[0][i].numpy():.3f}')
 
-            # Check for siren-related classes
-            siren_classes = set(['Siren', 'Civil defense siren', 'Police car (siren)',
-                            'Ambulance (siren)', 'Fire engine, fire truck (siren)',
-                            'Alarm', 'Buzzer', 'Emergency vehicle',
-                            'Vehicle horn, car horn, honking'])
+        # Check for siren-related classes
+        siren_classes = set(['Siren', 'Civil defense siren', 'Police car (siren)',
+                        'Ambulance (siren)', 'Fire engine, fire truck (siren)',
+                        'Alarm', 'Buzzer', 'Emergency vehicle',
+                        'Vehicle horn, car horn, honking'])
 
-            # Require a minimum confidence score so YAMNet must be fairly certain,
-            # not just vaguely placing a siren class somewhere in the top 5.
-            SIREN_SCORE_THRESHOLD = 0.15
+        # Require a minimum confidence score so YAMNet must be fairly certain,
+        # not just vaguely placing a siren class somewhere in the top 5.
+        SIREN_SCORE_THRESHOLD = 0.15
 
-            if any(class_names[i] in siren_classes and scores[0][i].numpy() > SIREN_SCORE_THRESHOLD
-                for i in top_classes):
-                    print("🚨 ALERT: Siren Detected! 🚨")
-                    if command_queue is not None:
-                        now = time.monotonic()
-                        if now - last_alert_time < SIREN_ALERT_COOLDOWN:
-                            continue
-                        last_alert_time = now
-                        try:
-                            command_queue.put_nowait((0, now, "siren detected"))
-                        except queue.Full:
-                            print("Command queue full; dropping 'siren detected' notification.")
+        if any(class_names[i] in siren_classes and scores[0][i].numpy() > SIREN_SCORE_THRESHOLD
+            for i in top_classes):
+                print("🚨 ALERT: Siren Detected! 🚨")
+                if command_queue is not None:
+                    now = time.monotonic()
+                    if now - last_alert_time < SIREN_ALERT_COOLDOWN:
+                        continue
+                    last_alert_time = now
+                    try:
+                        command_queue.put_nowait((0, now, "siren detected"))
+                    except queue.Full:
+                        print("Command queue full; dropping 'siren detected' notification.")

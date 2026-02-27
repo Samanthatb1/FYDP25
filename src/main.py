@@ -35,9 +35,16 @@ def audio_callback(indata, frames, time_info, status):
     audio_data = audio_data * AUDIO_GAIN
     audio_data = np.clip(audio_data, -1.0, 1.0)  # Prevent clipping
 
-    # Put audio data into both queues
-    audio_queue_siren.put(audio_data)
-    audio_queue_keywords.put(audio_data)
+    # Put audio data into both queues; drop the frame if a consumer is behind
+    # rather than blocking the real-time audio callback.
+    try:
+        audio_queue_siren.put_nowait(audio_data)
+    except queue.Full:
+        pass
+    try:
+        audio_queue_keywords.put_nowait(audio_data)
+    except queue.Full:
+        pass
 
 
 def start_detection_threads(command_queue):
