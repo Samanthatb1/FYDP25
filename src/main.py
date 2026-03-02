@@ -32,17 +32,20 @@ def audio_callback(indata, frames, time_info, status):
     if status:
         print("Audio status:", status)
 
-    audio_data = indata[:, 0].astype(np.float32)
+    raw = indata[:, 0].astype(np.float32)
 
-    audio_data = audio_data * AUDIO_GAIN
-    audio_data = np.clip(audio_data, -1.0, 1.0)
-
+    # Siren detector gets raw audio — its energy threshold is tuned for
+    # real mic levels; applying gain here would make ambient noise trigger
+    # YAMNet constantly and saturate the CPU.
     try:
-        audio_queue_siren.put_nowait(audio_data)
+        audio_queue_siren.put_nowait(raw)
     except queue.Full:
         pass
+
+    # Speech detector gets gained audio so Vosk can hear quiet speakers.
+    gained = np.clip(raw * AUDIO_GAIN, -1.0, 1.0)
     try:
-        audio_queue_keywords.put_nowait(audio_data)
+        audio_queue_keywords.put_nowait(gained)
     except queue.Full:
         pass
 
@@ -133,18 +136,23 @@ def run_command_display(command_queue, image_dir=None):
         cache[key] = img
         return img
 
+    stalled_image = load_image_for("wakeup_no_cmd")
+
     def update_display():
         try:
             try:
                 _, _, command_name = command_queue.get_nowait()
             except queue.Empty:
-                if label.image != blank_image:
-                    label.config(image=blank_image)
-                    label.image = blank_image
-
                 stale = time.monotonic() - _last_audio_callback
                 if stale > 5:
                     print(f"WARNING: no audio callback for {stale:.0f}s — mic may be stalled")
+                    if label.image != stalled_image:
+                        label.config(image=stalled_image)
+                        label.image = stalled_image
+                else:
+                    if label.image != blank_image:
+                        label.config(image=blank_image)
+                        label.image = blank_image
 
                 root.after(200, update_display)
                 return

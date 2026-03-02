@@ -31,7 +31,9 @@ with open('models/yamnet_class_map.csv', 'r') as f:
 def detect_siren(audio_queue_siren, command_queue=None):
     """Thread to detect sirens using YAMNet."""
     SIREN_ALERT_COOLDOWN = 3.0
+    YAMNET_MIN_INTERVAL = 1.5  # seconds — cap inference rate to protect CPU
     last_alert_time = 0.0
+    last_yamnet_time = 0.0
 
     siren_classes = frozenset([
         'Siren', 'Civil defense siren', 'Police car (siren)',
@@ -45,8 +47,7 @@ def detect_siren(audio_queue_siren, command_queue=None):
         try:
             audio_data = audio_queue_siren.get()
 
-            # YAMNet is slow on a Pi — skip to the freshest chunk so we don't
-            # process audio that is many seconds old.
+            # Skip to the freshest chunk so we don't process stale audio.
             while not audio_queue_siren.empty():
                 try:
                     audio_data = audio_queue_siren.get_nowait()
@@ -57,7 +58,12 @@ def detect_siren(audio_queue_siren, command_queue=None):
                 print("👂 No siren range frequencies")
                 continue
 
-            print("👂 Siren range frequencies")
+            now = time.monotonic()
+            if now - last_yamnet_time < YAMNET_MIN_INTERVAL:
+                continue
+            last_yamnet_time = now
+
+            print("👂 Siren range frequencies — running YAMNet")
 
             audio_tensor = tf.convert_to_tensor(audio_data, dtype=tf.float32)
             scores, _, _ = yamnet_model(audio_tensor)
