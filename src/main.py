@@ -24,6 +24,11 @@ audio_queue_keywords = queue.Queue(maxsize=10)  # Queue for keyword detection
 
 _last_audio_callback = time.monotonic()
 
+# Single-element lists so detector threads can update the timestamp in-place.
+# Initialised to now so the watchdog doesn't false-alarm before threads start.
+_siren_heartbeat  = [time.monotonic()]
+_speech_heartbeat = [time.monotonic()]
+
 def audio_callback(indata, frames, time_info, status):
     """Callback function for audio input stream."""
     global _last_audio_callback
@@ -53,10 +58,14 @@ def audio_callback(indata, frames, time_info, status):
 def start_detection_threads(command_queue):
     """Start detection threads for siren and keywords."""
     threading.Thread(
-        target=detect_siren, args=(audio_queue_siren, command_queue), daemon=True
+        target=detect_siren,
+        args=(audio_queue_siren, command_queue, _siren_heartbeat),
+        daemon=True,
     ).start()
     threading.Thread(
-        target=detect_keywords, args=(audio_queue_keywords, command_queue), daemon=True
+        target=detect_keywords,
+        args=(audio_queue_keywords, command_queue, _speech_heartbeat),
+        daemon=True,
     ).start()
 
 
@@ -136,23 +145,26 @@ def run_command_display(command_queue, image_dir=None):
         cache[key] = img
         return img
 
-    stalled_image = load_image_for("wakeup_no_cmd")
-
     def update_display():
         try:
             try:
                 _, _, command_name = command_queue.get_nowait()
             except queue.Empty:
-                stale = time.monotonic() - _last_audio_callback
-                if stale > 5:
-                    print(f"WARNING: no audio callback for {stale:.0f}s — mic may be stalled")
-                    if label.image != stalled_image:
-                        label.config(image=stalled_image)
-                        label.image = stalled_image
-                else:
-                    if label.image != blank_image:
-                        label.config(image=blank_image)
-                        label.image = blank_image
+                now = time.monotonic()
+                audio_stale  = now - _last_audio_callback
+                siren_stale  = now - _siren_heartbeat[0]
+                speech_stale = now - _speech_heartbeat[0]
+
+                if audio_stale > 5:
+                    print(f"WARNING: no audio for {audio_stale:.0f}s")
+                if siren_stale > 10:
+                    print(f"WARNING: siren detector silent for {siren_stale:.0f}s")
+                if speech_stale > 10:
+                    print(f"WARNING: speech detector silent for {speech_stale:.0f}s")
+
+                if label.image != blank_image:
+                    label.config(image=blank_image)
+                    label.image = blank_image
 
                 root.after(200, update_display)
                 return

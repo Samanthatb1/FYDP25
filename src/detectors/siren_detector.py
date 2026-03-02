@@ -1,3 +1,4 @@
+import gc
 import numpy as np
 import sys
 import os
@@ -28,12 +29,14 @@ with open('models/yamnet_class_map.csv', 'r') as f:
         class_names.append(row['display_name'])
 
 
-def detect_siren(audio_queue_siren, command_queue=None):
+def detect_siren(audio_queue_siren, command_queue=None, heartbeat=None):
     """Thread to detect sirens using YAMNet."""
     SIREN_ALERT_COOLDOWN = 3.0
-    YAMNET_MIN_INTERVAL = 1.5  # seconds — cap inference rate to protect CPU
+    YAMNET_MIN_INTERVAL = 3.0  # seconds — cap inference rate to protect Pi CPU
+    GC_INTERVAL = 60.0         # force a GC pass every 60s to reclaim TF memory
     last_alert_time = 0.0
     last_yamnet_time = 0.0
+    last_gc_time = time.monotonic()
 
     siren_classes = frozenset([
         'Siren', 'Civil defense siren', 'Police car (siren)',
@@ -47,6 +50,9 @@ def detect_siren(audio_queue_siren, command_queue=None):
         try:
             audio_data = audio_queue_siren.get()
 
+            if heartbeat is not None:
+                heartbeat[0] = time.monotonic()
+
             # Skip to the freshest chunk so we don't process stale audio.
             while not audio_queue_siren.empty():
                 try:
@@ -54,11 +60,15 @@ def detect_siren(audio_queue_siren, command_queue=None):
                 except queue.Empty:
                     break
 
+            # Periodic GC to reclaim TF intermediate tensors before memory fills up.
+            now = time.monotonic()
+            if now - last_gc_time > GC_INTERVAL:
+                gc.collect()
+                last_gc_time = now
+
             if not has_siren_frequencies(audio_data, RATE):
-                print("👂 No siren range frequencies")
                 continue
 
-            now = time.monotonic()
             if now - last_yamnet_time < YAMNET_MIN_INTERVAL:
                 continue
             last_yamnet_time = now
@@ -68,14 +78,17 @@ def detect_siren(audio_queue_siren, command_queue=None):
             audio_tensor = tf.convert_to_tensor(audio_data, dtype=tf.float32)
             scores, _, _ = yamnet_model(audio_tensor)
 
-            if scores.shape[0] == 0:
-                continue
+            detected = scores.shape[0] > 0 and any(
+                class_names[i] in siren_classes
+                and scores[0][i].numpy() > SIREN_SCORE_THRESHOLD
+                for i in tf.argsort(scores, axis=-1, direction='DESCENDING')[0][:5]
+            )
 
-            top_classes = tf.argsort(scores, axis=-1, direction='DESCENDING')[0][:5]
+            # Explicitly release TF tensors so they don't accumulate in memory.
+            del audio_tensor, scores
+            gc.collect()
 
-            if any(class_names[i] in siren_classes
-                   and scores[0][i].numpy() > SIREN_SCORE_THRESHOLD
-                   for i in top_classes):
+            if detected:
                 print("🚨 ALERT: Siren Detected! 🚨")
                 if command_queue is not None:
                     now = time.monotonic()

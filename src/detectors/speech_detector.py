@@ -48,13 +48,16 @@ VOSK_PATH = "models/vosk-model-small-en-us-0.15"  # small model for Pi compatibi
 vosk_model = Model(VOSK_PATH)
 recognizer = KaldiRecognizer(vosk_model, RATE)
 
-def detect_keywords(audio_queue_keywords, command_queue=None):
+def detect_keywords(audio_queue_keywords, command_queue=None, heartbeat=None):
     """Thread to detect spoken commands using Vosk with fuzzy matching."""
     global recognizer
 
     while True:
         try:
             audio_data = audio_queue_keywords.get()
+
+            if heartbeat is not None:
+                heartbeat[0] = time.monotonic()
             int16_audio = (audio_data * 32767).astype(np.int16)
 
             if recognizer.AcceptWaveform(int16_audio.tobytes()):
@@ -76,10 +79,7 @@ def detect_keywords(audio_queue_keywords, command_queue=None):
                     else:
                         print("WAKEUP PHRASE DETECTED BUT NO KNOWN COMMAND MATCHED")
             else:
-                partial_result = json.loads(recognizer.PartialResult())
-                partial_text = partial_result.get("text", "").lower()
-                if partial_text:
-                    print(f"Partial recognition: {partial_text}")
+                pass  # partial results are not actionable; don't print every chunk
 
         except Exception as e:
             print(f"Error in keyword detector: {e} — reinitialising recognizer")

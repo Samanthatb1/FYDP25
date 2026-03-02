@@ -5,10 +5,15 @@ from scipy.fft import rfft, rfftfreq          # For performing FFT and getting c
 LOW_CUT = 1000  # Hz (lower edge of typical siren range)
 HIGH_CUT = 5000  # Hz (upper edge of typical siren range)
 
+# Pre-compute filter coefficients once at import time — calling butter() on every
+# audio chunk (1.6×/second) was wasting significant CPU for no reason.
+_DEFAULT_SOS = butter(N=4, Wn=[LOW_CUT, HIGH_CUT], btype='bandpass', fs=16000, output='sos')
+
 def bandpass_filter(audio_data, sampling_rate, lowcut=LOW_CUT, highcut=HIGH_CUT, order=4):
-    # Defines the bandpass filter
-    sos = butter(N=order, Wn=[lowcut, highcut], btype='bandpass', fs=sampling_rate, output='sos')
-    # Actually applies the filter to the data
+    if lowcut == LOW_CUT and highcut == HIGH_CUT and sampling_rate == 16000:
+        sos = _DEFAULT_SOS
+    else:
+        sos = butter(N=order, Wn=[lowcut, highcut], btype='bandpass', fs=sampling_rate, output='sos')
     return sosfilt(sos, audio_data)
 
 # fft = fast fourier transform
@@ -37,13 +42,8 @@ def peak_fft_magnitude_in_range(filtered_data, sampling_rate, lowcut=LOW_CUT, hi
     masked_scores = fft_scores[mask]
     masked_freqs = freqs[mask]
 
-    # Find the index of the peak magnitude
     peak_index = np.argmax(masked_scores)
     peak_magnitude = masked_scores[peak_index]
-    peak_frequency = masked_freqs[peak_index]
-
-    # Print the frequency with the highest magnitude
-    print(f"Strongest frequency: {peak_frequency:.2f} Hz (magnitude: {peak_magnitude:.2f})")
 
     return peak_magnitude
 
@@ -62,8 +62,6 @@ def has_siren_frequencies(audio_data, sampling_rate,
 
     if energy < energy_threshold:
         return False
-
-    print("energy: ", energy , "J")
 
     # normalize only AFTER the energy gate, so the FFT shape analysis is
     # scale-independent while the loudness check above still reflects reality
