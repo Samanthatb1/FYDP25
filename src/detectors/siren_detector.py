@@ -30,45 +30,46 @@ with open('models/yamnet_class_map.csv', 'r') as f:
 
 def detect_siren(audio_queue_siren, command_queue=None):
     """Thread to detect sirens using YAMNet."""
-    # Throttle how often we enqueue siren alerts to avoid flooding the UI queue.
-    # This is necessary because if a siren is played for 5 seconds, that means originally
-    # we'd add 25 siren commands to the queue, so it essentially hogs the queue
-    SIREN_ALERT_COOLDOWN = 3.0  # seconds between queued siren alerts
+    SIREN_ALERT_COOLDOWN = 3.0
     last_alert_time = 0.0
 
+    siren_classes = frozenset([
+        'Siren', 'Civil defense siren', 'Police car (siren)',
+        'Ambulance (siren)', 'Fire engine, fire truck (siren)',
+        'Alarm', 'Buzzer', 'Emergency vehicle',
+        'Vehicle horn, car horn, honking',
+    ])
+    SIREN_SCORE_THRESHOLD = 0.15
+
     while True:
-        audio_data = audio_queue_siren.get()
+        try:
+            audio_data = audio_queue_siren.get()
 
-        # Apply the singal analysis filter check for siren-like frequencies
-        if not has_siren_frequencies(audio_data, RATE):
-            print("👂 No siren range frequencies")
-            continue  # Skip if no siren-like frequencies
+            # YAMNet is slow on a Pi — skip to the freshest chunk so we don't
+            # process audio that is many seconds old.
+            while not audio_queue_siren.empty():
+                try:
+                    audio_data = audio_queue_siren.get_nowait()
+                except queue.Empty:
+                    break
 
-        print("👂 Siren range frequencies")
+            if not has_siren_frequencies(audio_data, RATE):
+                print("👂 No siren range frequencies")
+                continue
 
-        # Run the YAMNet model
-        audio_tensor = tf.convert_to_tensor(audio_data, dtype=tf.float32)
-        scores, _, _ = yamnet_model(audio_tensor)
+            print("👂 Siren range frequencies")
 
-        # Get top 5 classes
-        top_classes = tf.argsort(scores, axis=-1, direction='DESCENDING')[0][:5]
+            audio_tensor = tf.convert_to_tensor(audio_data, dtype=tf.float32)
+            scores, _, _ = yamnet_model(audio_tensor)
 
-        # print("Model Classified: ")
-        # for i in top_classes:
-        #     print(f'{class_names[i]}: {scores[0][i].numpy():.3f}')
+            if scores.shape[0] == 0:
+                continue
 
-        # Check for siren-related classes
-        siren_classes = set(['Siren', 'Civil defense siren', 'Police car (siren)',
-                        'Ambulance (siren)', 'Fire engine, fire truck (siren)',
-                        'Alarm', 'Buzzer', 'Emergency vehicle',
-                        'Vehicle horn, car horn, honking'])
+            top_classes = tf.argsort(scores, axis=-1, direction='DESCENDING')[0][:5]
 
-        # Require a minimum confidence score so YAMNet must be fairly certain,
-        # not just vaguely placing a siren class somewhere in the top 5.
-        SIREN_SCORE_THRESHOLD = 0.15
-
-        if any(class_names[i] in siren_classes and scores[0][i].numpy() > SIREN_SCORE_THRESHOLD
-            for i in top_classes):
+            if any(class_names[i] in siren_classes
+                   and scores[0][i].numpy() > SIREN_SCORE_THRESHOLD
+                   for i in top_classes):
                 print("🚨 ALERT: Siren Detected! 🚨")
                 if command_queue is not None:
                     now = time.monotonic()
@@ -78,4 +79,8 @@ def detect_siren(audio_queue_siren, command_queue=None):
                     try:
                         command_queue.put_nowait((0, now, "siren detected"))
                     except queue.Full:
-                        print("Command queue full; dropping 'siren detected' notification.")
+                        print("Command queue full; dropping 'siren detected'.")
+
+        except Exception as e:
+            print(f"Error in siren detector: {e}")
+            time.sleep(0.5)

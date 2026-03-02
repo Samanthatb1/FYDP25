@@ -22,21 +22,21 @@ AUDIO_GAIN = 3.0
 audio_queue_siren = queue.Queue(maxsize=10)  # Queue for siren detection
 audio_queue_keywords = queue.Queue(maxsize=10)  # Queue for keyword detection
 
+_last_audio_callback = time.monotonic()
+
 def audio_callback(indata, frames, time_info, status):
     """Callback function for audio input stream."""
+    global _last_audio_callback
+    _last_audio_callback = time.monotonic()
+
     if status:
         print("Audio status:", status)
 
-    # Flatten and convert for tensor
-    # audio data stores CHUNK number of samples that store the amplitude 
-    audio_data = indata[:, 0].astype(np.float32)  # Ensure it's mono
-    
-    # Apply software gain boost
-    audio_data = audio_data * AUDIO_GAIN
-    audio_data = np.clip(audio_data, -1.0, 1.0)  # Prevent clipping
+    audio_data = indata[:, 0].astype(np.float32)
 
-    # Put audio data into both queues; drop the frame if a consumer is behind
-    # rather than blocking the real-time audio callback.
+    audio_data = audio_data * AUDIO_GAIN
+    audio_data = np.clip(audio_data, -1.0, 1.0)
+
     try:
         audio_queue_siren.put_nowait(audio_data)
     except queue.Full:
@@ -58,18 +58,22 @@ def start_detection_threads(command_queue):
 
 
 def start_audio_stream():
-    """Start the audio stream on a background thread."""
-    # Use device 2 (USB audio CODEC) instead of default MacBook Pro Microphone
-    with sd.InputStream(
-        channels=1,
-        samplerate=RATE,
-        blocksize=CHUNK,
-        dtype="float32",
-        callback=audio_callback,
-    ):
-        print("Listening for sirens and keywords using USB microphone (device 2).")
-        while True:
-            time.sleep(0.1)
+    """Start the audio stream, restarting automatically on failure."""
+    while True:
+        try:
+            with sd.InputStream(
+                channels=1,
+                samplerate=RATE,
+                blocksize=CHUNK,
+                dtype="float32",
+                callback=audio_callback,
+            ):
+                print("Audio stream started — listening for sirens and keywords.")
+                while True:
+                    time.sleep(0.1)
+        except Exception as e:
+            print(f"Audio stream error: {e}. Restarting in 2 seconds...")
+            time.sleep(2)
 
 def run_command_display(command_queue, image_dir=None):
     """
@@ -130,20 +134,30 @@ def run_command_display(command_queue, image_dir=None):
         return img
 
     def update_display():
-        if not command_queue.empty():
-            _, _, command_name = command_queue.get()
+        try:
+            try:
+                _, _, command_name = command_queue.get_nowait()
+            except queue.Empty:
+                if label.image != blank_image:
+                    label.config(image=blank_image)
+                    label.image = blank_image
+
+                stale = time.monotonic() - _last_audio_callback
+                if stale > 5:
+                    print(f"WARNING: no audio callback for {stale:.0f}s — mic may be stalled")
+
+                root.after(200, update_display)
+                return
+
             img = load_image_for(command_name)
             label.config(image=img)
             label.image = img
-            # Show siren alert briefly; other commands stay visible longer.
             display_duration_ms = 4000 if command_name == "siren detected" else 10000
             root.after(display_duration_ms, update_display)
-        else:
-            if label.image != blank_image:
-                label.config(image=blank_image)
-                label.image = blank_image
-            # Poll a little faster when idle so new commands appear quickly.
-            root.after(200, update_display)
+
+        except Exception as e:
+            print(f"Error in update_display: {e}")
+            root.after(500, update_display)
 
     root.after(0, update_display)
     root.mainloop()
