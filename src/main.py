@@ -3,31 +3,26 @@ import sounddevice as sd
 import time
 import queue
 import threading
+import multiprocessing
 import signal
 import sys
 from pathlib import Path
 import tkinter as tk
 from PIL import Image, ImageTk
 
-from detectors.siren_detector import detect_siren
 from detectors.speech_detector import detect_keywords
-
 from constants import RATE, CHUNK
 
-# Software gain for microphones without hardware gain control
-# Increase this if the mic is too quiet (try 4.0, 5.0, etc.)
 AUDIO_GAIN = 3.0
 
-# Queue for audio data
-audio_queue_siren = queue.Queue(maxsize=10)  # Queue for siren detection
-audio_queue_keywords = queue.Queue(maxsize=10)  # Queue for keyword detection
+audio_queue_keywords = queue.Queue(maxsize=10)
 
 _last_audio_callback = time.monotonic()
-
-# Single-element lists so detector threads can update the timestamp in-place.
-# Initialised to now so the watchdog doesn't false-alarm before threads start.
-_siren_heartbeat  = [time.monotonic()]
 _speech_heartbeat = [time.monotonic()]
+
+# Assigned in main() before the audio stream starts.
+_mp_audio_queue = None
+
 
 def audio_callback(indata, frames, time_info, status):
     """Callback function for audio input stream."""
@@ -39,34 +34,18 @@ def audio_callback(indata, frames, time_info, status):
 
     raw = indata[:, 0].astype(np.float32)
 
-    # Siren detector gets raw audio — its energy threshold is tuned for
-    # real mic levels; applying gain here would make ambient noise trigger
-    # YAMNet constantly and saturate the CPU.
+    # Siren detector (separate process) gets raw audio.
     try:
-        audio_queue_siren.put_nowait(raw)
-    except queue.Full:
+        _mp_audio_queue.put_nowait(raw)
+    except Exception:
         pass
 
-    # Speech detector gets gained audio so Vosk can hear quiet speakers.
+    # Speech detector (thread) gets gained audio.
     gained = np.clip(raw * AUDIO_GAIN, -1.0, 1.0)
     try:
         audio_queue_keywords.put_nowait(gained)
     except queue.Full:
         pass
-
-
-def start_detection_threads(command_queue):
-    """Start detection threads for siren and keywords."""
-    threading.Thread(
-        target=detect_siren,
-        args=(audio_queue_siren, command_queue, _siren_heartbeat),
-        daemon=True,
-    ).start()
-    threading.Thread(
-        target=detect_keywords,
-        args=(audio_queue_keywords, command_queue, _speech_heartbeat),
-        daemon=True,
-    ).start()
 
 
 def start_audio_stream():
@@ -87,36 +66,29 @@ def start_audio_stream():
             print(f"Audio stream error: {e}. Restarting in 2 seconds...")
             time.sleep(2)
 
+
 def run_command_display(command_queue, image_dir=None):
     """
     Run a Tkinter UI that shows images for commands from the queue.
 
     The image file must match the command name with a .png extension.
-    When no command is waiting, blank.png (or a generated placeholder) is shown.
+    When no command is waiting, blank.png is shown.
     Images are automatically resized to fit the screen.
-    
-    Args:
-        command_queue: Queue containing commands to display
-        image_dir: Directory containing image files
     """
-
     root = tk.Tk()
     root.title("Command Display")
     root.attributes('-fullscreen', True)
     root.config(cursor='none')
 
-    # Automatically detect screen size
     screen_width = root.winfo_screenwidth()
     screen_height = root.winfo_screenheight()
     display_size = (screen_width, screen_height)
-    print(f"Detected screen size: {screen_width}x{screen_height}")
 
     image_dir = Path(image_dir) if image_dir else Path(__file__).resolve().parent.parent
     cache = {}
     image_aliases = {"siren detected": "siren"}
 
     blank_path = image_dir / "blank.png"
-    # Load and resize blank image
     pil_blank = Image.open(str(blank_path))
     pil_blank = pil_blank.resize(display_size, Image.Resampling.LANCZOS)
     blank_image = ImageTk.PhotoImage(pil_blank)
@@ -131,17 +103,14 @@ def run_command_display(command_queue, image_dir=None):
         key = image_aliases.get(command_name, command_name)
         if key in cache:
             return cache[key]
-
         image_path = image_dir / f"{key}.png"
         if image_path.exists():
-            # Load and resize image using PIL
             pil_img = Image.open(str(image_path))
             pil_img = pil_img.resize(display_size, Image.Resampling.LANCZOS)
             img = ImageTk.PhotoImage(pil_img)
         else:
             print(f"No image found for '{command_name}' at {image_path}, using blank.")
             img = blank_image
-
         cache[key] = img
         return img
 
@@ -153,18 +122,15 @@ def run_command_display(command_queue, image_dir=None):
                 _, _, command_name = command_queue.get_nowait()
             except queue.Empty:
                 now = time.monotonic()
-                audio_stale  = now - _last_audio_callback
-                siren_stale  = now - _siren_heartbeat[0]
+                audio_stale = now - _last_audio_callback
                 speech_stale = now - _speech_heartbeat[0]
 
                 if now - last_warning_print[0] > 10:
                     if audio_stale > 5:
                         print(f"WARNING: no audio for {audio_stale:.0f}s")
-                    if siren_stale > 10:
-                        print(f"WARNING: siren detector silent for {siren_stale:.0f}s")
                     if speech_stale > 10:
                         print(f"WARNING: speech detector silent for {speech_stale:.0f}s")
-                    if audio_stale > 5 or siren_stale > 10 or speech_stale > 10:
+                    if audio_stale > 5 or speech_stale > 10:
                         last_warning_print[0] = now
 
                 if label.image != blank_image:
@@ -194,13 +160,47 @@ def handle_exit(sig, frame):
 
 
 def main():
-    """Main entry point to set up audio, detection, and command display."""
+    global _mp_audio_queue
+
     signal.signal(signal.SIGINT, handle_exit)
     signal.signal(signal.SIGTERM, handle_exit)
     print("Starting the detection system.")
 
     command_queue = queue.PriorityQueue(maxsize=20)
-    start_detection_threads(command_queue)
+
+    # Siren detection runs in a separate PROCESS so TensorFlow's memory
+    # and CPU usage are fully isolated from the main process.
+    _mp_audio_queue = multiprocessing.Queue(maxsize=10)
+    siren_result_queue = multiprocessing.Queue(maxsize=20)
+
+    from detectors.siren_detector import detect_siren
+    siren_proc = multiprocessing.Process(
+        target=detect_siren,
+        args=(_mp_audio_queue, siren_result_queue),
+        daemon=True,
+    )
+    siren_proc.start()
+
+    # Bridge thread forwards siren detections into the shared command queue.
+    def bridge_siren_results():
+        while True:
+            try:
+                result = siren_result_queue.get()
+                try:
+                    command_queue.put_nowait((0, time.monotonic(), result))
+                except queue.Full:
+                    pass
+            except Exception:
+                pass
+
+    threading.Thread(target=bridge_siren_results, daemon=True).start()
+
+    # Speech detection stays as a thread (Vosk is lightweight).
+    threading.Thread(
+        target=detect_keywords,
+        args=(audio_queue_keywords, command_queue, _speech_heartbeat),
+        daemon=True,
+    ).start()
 
     threading.Thread(target=start_audio_stream, daemon=True).start()
     print("Audio stream running. Starting command display window.")
