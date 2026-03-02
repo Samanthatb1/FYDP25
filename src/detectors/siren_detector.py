@@ -36,19 +36,39 @@ def detect_siren(audio_queue_siren, command_queue=None):
     SIREN_ALERT_COOLDOWN = 3.0  # seconds between queued siren alerts
     last_alert_time = 0.0
 
+    # YAMNet requires at least 0.96s (15360 samples at 16kHz) to produce one analysis
+    # frame. With CHUNK=9600 (0.6s), scores has shape [0, 521] and scores[0] raises
+    # an IndexError that silently kills this thread. Accumulate chunks until we have
+    # at least 1 second of audio before running inference.
+    YAMNET_MIN_SAMPLES = RATE  # 1 second
+    audio_buffer = np.array([], dtype=np.float32)
+
     while True:
         audio_data = audio_queue_siren.get()
 
-        # Apply the singal analysis filter check for siren-like frequencies
+        # Apply the pre-filter on each incoming chunk. If a chunk has no siren-range
+        # frequencies, reset the buffer — no point accumulating non-siren audio.
         if not has_siren_frequencies(audio_data, RATE):
             print("👂 No siren range frequencies")
-            continue  # Skip if no siren-like frequencies
+            audio_buffer = np.array([], dtype=np.float32)
+            continue
 
         print("👂 Siren range frequencies")
+        audio_buffer = np.concatenate([audio_buffer, audio_data])
+
+        if len(audio_buffer) < YAMNET_MIN_SAMPLES:
+            continue  # Keep accumulating until we have enough for YAMNet
+
+        chunk_to_process = audio_buffer
+        audio_buffer = np.array([], dtype=np.float32)
 
         # Run the YAMNet model
-        audio_tensor = tf.convert_to_tensor(audio_data, dtype=tf.float32)
+        audio_tensor = tf.convert_to_tensor(chunk_to_process, dtype=tf.float32)
         scores, _, _ = yamnet_model(audio_tensor)
+
+        if scores.shape[0] == 0:
+            print("YAMNet returned no frames; audio too short.")
+            continue
 
         # Get top 5 classes
         top_classes = tf.argsort(scores, axis=-1, direction='DESCENDING')[0][:5]

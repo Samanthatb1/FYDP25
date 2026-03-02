@@ -16,7 +16,11 @@ WAKEUP_PHRASES = [
     "excuse me driver",
     "excuse me the driver",
     "the excuse me driver",
-    "hey driver"
+    "hey driver",
+    "ivor",
+    "use me driver",
+    "the driver",
+    "a driver"
 ]
 
 KEYWORDS = {
@@ -46,37 +50,82 @@ recognizer = KaldiRecognizer(vosk_model, RATE)
 
 def detect_keywords(audio_queue_keywords, command_queue=None):
     """Thread to detect spoken commands using Vosk with fuzzy matching."""
+    # In noisy environments (e.g. a moving car), Vosk's VAD never detects silence
+    # so AcceptWaveform never returns True on its own. Force-flush the recognizer
+    # every FLUSH_EVERY chunks so accumulated speech is always processed.
+    # At CHUNK=9600 and RATE=16000, each chunk is 0.6s → flush every ~3s.
+    FLUSH_EVERY = 5
+    chunks_since_flush = 0
+
+    # When the wakeup phrase is heard but no command follows in the same flush
+    # window (e.g. the user pauses between "excuse me driver" and "thank you"),
+    # hold the wakeup text and prepend it to the next flush before matching.
+    pending_wakeup_text = None
+
     while True:
         audio_data = audio_queue_keywords.get()
         int16_audio = (audio_data * 32767).astype(np.int16)
+        chunks_since_flush += 1
 
-        # Process the audio for speech recognition
-        if recognizer.AcceptWaveform(int16_audio.tobytes()):
-            # Only process final results (after person finishes speaking)
+        got_final = recognizer.AcceptWaveform(int16_audio.tobytes())
+
+        if got_final:
             result = json.loads(recognizer.Result())
-            text = result.get("text", "").lower()
-            print(f"Processing recognized text: {text}")
-
-            # Check if wakeup phrase is in the text
-            if any(wake in text for wake in WAKEUP_PHRASES):
-                commands = get_commands(text)
-
-                if commands:
-                    for command in commands:
-                        print(f"COMMAND DETECTED: {command} 🗣️🗣️🗣️🗣️🗣️🗣️")
-                        if command_queue is not None:
-                            try:
-                                command_queue.put_nowait((1, time.monotonic(), command))
-                            except queue.Full:
-                                print(f"Command queue full; dropping '{command}'.")
-                else:
-                    print("WAKEUP PHRASE DETECTED BUT NO KNOWN COMMAND MATCHED")
+            chunks_since_flush = 0
+        elif chunks_since_flush >= FLUSH_EVERY:
+            # Force-flush: grab whatever Vosk has accumulated so far
+            result = json.loads(recognizer.FinalResult())
+            chunks_since_flush = 0
         else:
             # Partial result - don't process, just log for debugging
             partial_result = json.loads(recognizer.PartialResult())
-            partial_text = partial_result.get("text", "").lower()
+            partial_text = partial_result.get("partial", "").lower()
             if partial_text:
                 print(f"Partial recognition: {partial_text}")
+            continue
+
+        text = result.get("text", "").lower()
+
+        # If we're waiting for a follow-up command after a wakeup phrase,
+        # combine the held text with the new text and check for commands.
+        if pending_wakeup_text is not None:
+            combined = (pending_wakeup_text + " " + text).strip()
+            pending_wakeup_text = None
+            print(f"Processing combined text: {combined}")
+            commands = get_commands(combined)
+            if commands:
+                for command in commands:
+                    print(f"COMMAND DETECTED: {command} 🗣️🗣️🗣️🗣️🗣️🗣️")
+                    if command_queue is not None:
+                        try:
+                            command_queue.put_nowait((1, time.monotonic(), command))
+                        except queue.Full:
+                            print(f"Command queue full; dropping '{command}'.")
+            else:
+                print("NO COMMAND FOUND IN FOLLOW-UP")
+            continue
+
+        if not text:
+            continue
+
+        print(f"Processing recognized text: {text}")
+
+        # Check if wakeup phrase is in the text
+        if any(wake in text for wake in WAKEUP_PHRASES):
+            commands = get_commands(text)
+
+            if commands:
+                for command in commands:
+                    print(f"COMMAND DETECTED: {command} 🗣️🗣️🗣️🗣️🗣️🗣️")
+                    if command_queue is not None:
+                        try:
+                            command_queue.put_nowait((1, time.monotonic(), command))
+                        except queue.Full:
+                            print(f"Command queue full; dropping '{command}'.")
+            else:
+                # Wakeup heard but no command yet — wait one more flush window
+                print("WAKEUP PHRASE DETECTED, WAITING FOR COMMAND...")
+                pending_wakeup_text = text
 
 
 # Use fuzz to do fuzzy matching for phrases and return all commands in spoken order
