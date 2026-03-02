@@ -145,6 +145,8 @@ def run_command_display(command_queue, image_dir=None):
         cache[key] = img
         return img
 
+    last_warning_print = [0.0]
+
     def update_display():
         try:
             try:
@@ -155,12 +157,15 @@ def run_command_display(command_queue, image_dir=None):
                 siren_stale  = now - _siren_heartbeat[0]
                 speech_stale = now - _speech_heartbeat[0]
 
-                if audio_stale > 5:
-                    print(f"WARNING: no audio for {audio_stale:.0f}s")
-                if siren_stale > 10:
-                    print(f"WARNING: siren detector silent for {siren_stale:.0f}s")
-                if speech_stale > 10:
-                    print(f"WARNING: speech detector silent for {speech_stale:.0f}s")
+                if now - last_warning_print[0] > 10:
+                    if audio_stale > 5:
+                        print(f"WARNING: no audio for {audio_stale:.0f}s")
+                    if siren_stale > 10:
+                        print(f"WARNING: siren detector silent for {siren_stale:.0f}s")
+                    if speech_stale > 10:
+                        print(f"WARNING: speech detector silent for {speech_stale:.0f}s")
+                    if audio_stale > 5 or siren_stale > 10 or speech_stale > 10:
+                        last_warning_print[0] = now
 
                 if label.image != blank_image:
                     label.config(image=blank_image)
