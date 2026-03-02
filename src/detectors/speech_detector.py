@@ -58,6 +58,19 @@ def detect_keywords(audio_queue_keywords, command_queue=None, heartbeat=None):
 
             if heartbeat is not None:
                 heartbeat[0] = time.monotonic()
+
+            # If the queue is backing up, we're falling behind real time —
+            # dump stale chunks and reset Vosk so we process current audio.
+            if audio_queue_keywords.qsize() >= 5:
+                while not audio_queue_keywords.empty():
+                    try:
+                        audio_queue_keywords.get_nowait()
+                    except queue.Empty:
+                        break
+                recognizer = KaldiRecognizer(vosk_model, RATE)
+                print("Speech queue backed up — cleared stale audio, reset recognizer")
+                continue
+
             int16_audio = (audio_data * 32767).astype(np.int16)
 
             if recognizer.AcceptWaveform(int16_audio.tobytes()):

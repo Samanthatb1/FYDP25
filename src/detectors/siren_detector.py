@@ -71,12 +71,17 @@ def detect_siren(audio_queue_siren, command_queue=None, heartbeat=None):
 
             if now - last_yamnet_time < YAMNET_MIN_INTERVAL:
                 continue
-            last_yamnet_time = now
 
             print("👂 Siren range frequencies — running YAMNet")
 
             audio_tensor = tf.convert_to_tensor(audio_data, dtype=tf.float32)
             scores, _, _ = yamnet_model(audio_tensor)
+
+            # Record time AFTER inference so the interval is always measured from
+            # when we finished, not when we started. On a slow/throttled Pi,
+            # inference can take longer than YAMNET_MIN_INTERVAL, which would
+            # cause back-to-back runs if we stamped before the call.
+            last_yamnet_time = time.monotonic()
 
             detected = scores.shape[0] > 0 and any(
                 class_names[i] in siren_classes
@@ -87,6 +92,9 @@ def detect_siren(audio_queue_siren, command_queue=None, heartbeat=None):
             # Explicitly release TF tensors so they don't accumulate in memory.
             del audio_tensor, scores
             gc.collect()
+
+            # Brief yield so the audio callback thread gets CPU time.
+            time.sleep(0.05)
 
             if detected:
                 print("🚨 ALERT: Siren Detected! 🚨")
