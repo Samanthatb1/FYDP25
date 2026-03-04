@@ -3,6 +3,8 @@ import sounddevice as sd
 import time
 import queue
 import threading
+import signal
+import sys
 from pathlib import Path
 import tkinter as tk
 from PIL import Image, ImageTk
@@ -33,9 +35,16 @@ def audio_callback(indata, frames, time_info, status):
     audio_data = audio_data * AUDIO_GAIN
     audio_data = np.clip(audio_data, -1.0, 1.0)  # Prevent clipping
 
-    # Put audio data into both queues
-    audio_queue_siren.put(audio_data)
-    audio_queue_keywords.put(audio_data)
+    # Put audio data into both queues; drop the frame if a consumer is behind
+    # rather than blocking the real-time audio callback.
+    try:
+        audio_queue_siren.put_nowait(audio_data)
+    except queue.Full:
+        pass
+    try:
+        audio_queue_keywords.put_nowait(audio_data)
+    except queue.Full:
+        pass
 
 
 def start_detection_threads(command_queue):
@@ -77,7 +86,9 @@ def run_command_display(command_queue, image_dir=None):
 
     root = tk.Tk()
     root.title("Command Display")
-    
+    root.attributes('-fullscreen', True)
+    root.config(cursor='none')
+
     # Automatically detect screen size
     screen_width = root.winfo_screenwidth()
     screen_height = root.winfo_screenheight()
@@ -125,7 +136,7 @@ def run_command_display(command_queue, image_dir=None):
             label.config(image=img)
             label.image = img
             # Show siren alert briefly; other commands stay visible longer.
-            display_duration_ms = 3000 if command_name == "siren detected" else 10000
+            display_duration_ms = 4000 if command_name == "siren detected" else 10000
             root.after(display_duration_ms, update_display)
         else:
             if label.image != blank_image:
@@ -138,8 +149,15 @@ def run_command_display(command_queue, image_dir=None):
     root.mainloop()
 
 
+def handle_exit(sig, frame):
+    print("Shutting down cleanly...")
+    sys.exit(0)
+
+
 def main():
     """Main entry point to set up audio, detection, and command display."""
+    signal.signal(signal.SIGINT, handle_exit)
+    signal.signal(signal.SIGTERM, handle_exit)
     print("Starting the detection system.")
 
     command_queue = queue.PriorityQueue(maxsize=20)

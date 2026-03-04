@@ -16,34 +16,27 @@ WAKEUP_PHRASES = [
     "excuse me driver",
     "excuse me the driver",
     "the excuse me driver",
+    "hey driver"
 ]
 
 KEYWORDS = {
     "hotter": [
-        "make it warmer",
-        "may get warmer",
+        "turn up the heat",       
     ],
     "colder": [
-        "make it colder",
-        "may get colder",
+        "make it cooler",    
     ],
     "stop": [
-        "stop here",
-        "you can stop",
         "pull over",
-        "this is fine",
+        "pullover",          # Vosk merges the two words ~40% of the time
     ],
     "thanks": [
-        "thank you",
-        "thanks",
-        "appreciate it",
+        "thank you",        
     ],
     "trunk": [
-        "open the trunk",
-        "pop the trunk",
-        "can you open the back",
-    ],
-    "wakeup_no_cmd": []
+        "open the trunk",    
+    ]#,
+    # "wakeup_no_cmd": []
 }
 
 # Load Vosk model for speech recognition
@@ -54,41 +47,36 @@ recognizer = KaldiRecognizer(vosk_model, RATE)
 def detect_keywords(audio_queue_keywords, command_queue=None):
     """Thread to detect spoken commands using Vosk with fuzzy matching."""
     while True:
-        if not audio_queue_keywords.empty():
-            audio_data = audio_queue_keywords.get()
-            int16_audio = (audio_data * 32767).astype(np.int16)
+        audio_data = audio_queue_keywords.get()
+        int16_audio = (audio_data * 32767).astype(np.int16)
 
-            # Process the audio for speech recognition
-            if recognizer.AcceptWaveform(int16_audio.tobytes()):
-                # Only process final results (after person finishes speaking)
-                result = json.loads(recognizer.Result())
-                text = result.get("text", "").lower()
-                print(f"Processing recognized text: {text}")
+        # Process the audio for speech recognition
+        if recognizer.AcceptWaveform(int16_audio.tobytes()):
+            # Only process final results (after person finishes speaking)
+            result = json.loads(recognizer.Result())
+            text = result.get("text", "").lower()
+            print(f"Processing recognized text: {text}")
 
-                # Check if wakeup phrase is in the text
-                if any(wake in text for wake in WAKEUP_PHRASES):
-                    commands = get_commands(text)
+            # Check if wakeup phrase is in the text
+            if any(wake in text for wake in WAKEUP_PHRASES):
+                commands = get_commands(text)
 
-                    if commands:
-                        for command in commands:
-                            print(f"COMMAND DETECTED: {command} 🗣️🗣️🗣️🗣️🗣️🗣️")
-                            if command_queue is not None:
-                                try:
-                                    command_queue.put_nowait((1, time.monotonic(), command))
-                                except queue.Full:
-                                    print(f"Command queue full; dropping '{command}'.")
-                    else:
-                        print("WAKEUP PHRASE DETECTED BUT NO KNOWN COMMAND MATCHED")
-                        try:
-                            command_queue.put_nowait((1, time.monotonic(), "wakeup_no_cmd"))
-                        except queue.Full:
-                            print(f"Command queue full; dropping '{command}'.")
-            else:
-                # Partial result - don't process, just log for debugging
-                partial_result = json.loads(recognizer.PartialResult())
-                partial_text = partial_result.get("text", "").lower()
-                if partial_text:
-                    print(f"Partial recognition: {partial_text}")
+                if commands:
+                    for command in commands:
+                        print(f"COMMAND DETECTED: {command} 🗣️🗣️🗣️🗣️🗣️🗣️")
+                        if command_queue is not None:
+                            try:
+                                command_queue.put_nowait((1, time.monotonic(), command))
+                            except queue.Full:
+                                print(f"Command queue full; dropping '{command}'.")
+                else:
+                    print("WAKEUP PHRASE DETECTED BUT NO KNOWN COMMAND MATCHED")
+        else:
+            # Partial result - don't process, just log for debugging
+            partial_result = json.loads(recognizer.PartialResult())
+            partial_text = partial_result.get("text", "").lower()
+            if partial_text:
+                print(f"Partial recognition: {partial_text}")
 
 
 # Use fuzz to do fuzzy matching for phrases and return all commands in spoken order

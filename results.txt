@@ -1,0 +1,79 @@
+Label: 'siren'
+Chunk size: 9600 samples (0.60s each)
+
+  🎙  Recording 10.0s from microphone … (speak/play audio now)
+  Recording complete.
+  chunk   0:  energy = 0.000196
+  chunk   1:  energy = 0.000388
+  chunk   2:  energy = 0.000374
+  chunk   3:  energy = 0.000433
+  chunk   4:  energy = 0.000359
+  chunk   5:  energy = 0.000167
+  chunk   6:  energy = 0.000180
+  chunk   7:  energy = 0.000269
+  chunk   8:  energy = 0.000643
+  chunk   9:  energy = 0.000508
+  chunk  10:  energy = 0.000374
+  chunk  11:  energy = 0.000376
+  chunk  12:  energy = 0.000380
+  chunk  13:  energy = 0.000271
+  chunk  14:  energy = 0.000312
+  chunk  15:  energy = 0.000352
+
+  Label : siren  (16 chunks)
+  Min   : 0.000167
+  p10   : 0.000188
+  p25   : 0.000271
+  Median: 0.000366
+  p75   : 0.000382
+  p90   : 0.000471
+  Max   : 0.000643
+
+
+
+  Label: 'speech'
+Chunk size: 9600 samples (0.60s each)
+
+  🎙  Recording 5.0s from microphone … (speak/play audio now)
+  Recording complete.
+  chunk   0:  energy = 0.000009
+  chunk   1:  energy = 0.000002
+  chunk   2:  energy = 0.000068
+  chunk   3:  energy = 0.000005
+  chunk   4:  energy = 0.000001
+  chunk   5:  energy = 0.000002
+  chunk   6:  energy = 0.000002
+  chunk   7:  energy = 0.000005
+
+  Label : speech  (8 chunks)
+  Min   : 0.000001
+  p10   : 0.000001
+  p25   : 0.000002
+  Median: 0.000003
+  p75   : 0.000006
+  p90   : 0.000027
+  Max   : 0.000068
+
+
+  Label: 'laughter'
+Chunk size: 9600 samples (0.60s each)
+
+  🎙  Recording 5.0s from microphone … (speak/play audio now)
+  Recording complete.
+  chunk   0:  energy = 0.000103
+  chunk   1:  energy = 0.000020
+  chunk   2:  energy = 0.000019
+  chunk   3:  energy = 0.000008
+  chunk   4:  energy = 0.000011
+  chunk   5:  energy = 0.000016
+  chunk   6:  energy = 0.000008
+  chunk   7:  energy = 0.000002
+
+  Label : laughter  (8 chunks)
+  Min   : 0.000002
+  p10   : 0.000006
+  p25   : 0.000008
+  Median: 0.000013
+  p75   : 0.000019
+  p90   : 0.000045
+  Max   : 0.000103

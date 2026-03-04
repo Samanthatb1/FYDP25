@@ -49,26 +49,26 @@ def peak_fft_magnitude_in_range(filtered_data, sampling_rate, lowcut=LOW_CUT, hi
 
 
 def has_siren_frequencies(audio_data, sampling_rate, 
-                          energy_threshold=0.001,
+                          energy_threshold=0.000120, # "How much sound energy, on average, is sitting in the 1000–5000 Hz range during this chunk?"
                           fft_magnitude_threshold=130):
-    # Normalize audio to range [-1, 1]
-    # eg. 1 is the highest energy possible
-    if np.max(np.abs(audio_data)) > 0:
-        audio_data = audio_data / np.max(np.abs(audio_data))
-
     audio_data = audio_data - np.mean(audio_data) # center around 0
 
     filtered = bandpass_filter(audio_data, sampling_rate)
 
-    # compute the energy of the filtered signal
-    # the average power of the signal within the siren band (1000–5000 Hz)
+    # compute the energy of the filtered signal on the RAW (un-normalized) audio
+    # so that absolute loudness is preserved — quiet sounds like laughter won't
+    # be artificially amplified past this gate
     energy = np.sum(filtered ** 2) / len(filtered)
 
-    # we found this threshold from data analysis
     if energy < energy_threshold:
         return False
-    
+
     print("energy: ", energy , "J")
+
+    # normalize only AFTER the energy gate, so the FFT shape analysis is
+    # scale-independent while the loudness check above still reflects reality
+    if np.max(np.abs(filtered)) > 0:
+        filtered = filtered / np.max(np.abs(filtered))
 
     # get the peak magnitude for frequency in target range (1000-5000Hz)
     peak_magnitude = peak_fft_magnitude_in_range(filtered, sampling_rate)
