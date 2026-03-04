@@ -1,19 +1,14 @@
-# Info:
-1. siren ML model uses tenserflow yamnet
-2. speech detection model uses vosk
-3. the passenger speech detection is bad because you have to yell. 
-4. tensorflow cannot be used on the raspberry pi. we must use tensorflow LITE
+# Abstract 
 
-## Branches
-main - contains code that can run on your laptop
+According to the World Health Organization (WHO), approximately 430 million individuals are deaf or hard of hearing, and studies show they are three times more at risk of being involved in a motor vehicle accident. For hearing impaired drivers, driving requires constant heightened visual awareness of their environment. The objective of AlertRider is to provide real time visual cues of the driver’s surroundings, such as emergency sirens, honking vehicles, and passenger speech. AlertRider is designed with a focus on rideshare drivers (eg. Uber & Lyft), to ensure safe and clear passenger-driver communication. The implementation utilizes a Raspberry Pi alongside a microphone and screen, powered by the car's battery. The program involves signal classification methods such as bandpass filters and ML models that can classify external sounds, along with key passenger phrases within the car. Once detected, the screen displays a clear visual alert to the driver, signaling the audio that was captured. AlertRider’s main advantage over existing technologies is that it can be integrated into any car model, unlike Hyundai’s hearing impaired assistance which is only available in certain models. Additionally, our tool offers passenger speech conversion which is not available in existing tools.
 
-raspberry_pi - contains code that can run on the pi / mimic running on the pi
+![fire department image](fire_depart.png)
+
+# Models:
+1. Siren ML model uses Tenserflow's [YAMNet](https://www.tensorflow.org/hub/tutorials/yamnet)
+2. Speech detection model uses [Vosk](https://alphacephei.com/vosk/)
 
 # How to run:
-
-*the code is in the /src directory**
-
-clone this github repo on your local desktop
 
 make sure you have python 3 installed. Run this to check
 
@@ -35,24 +30,11 @@ install packages
 
 ```pip install -r requirements.txt```
 
-
-run the file
+run the project
 
 ```python src/main.py```
 
-if you get an error that a package isnt installed, install it:
-
-```pip install some-package```
-
-## Output
-Will look something like 
-
-![alt text](image.png)
-
-## Auto Startup
-to stop the program, run `systemctl --user stop alertrider.service`
-
-# Installed Vosk model
+## Installed Vosk model
 ```
 curl -L -o vosk-model-en-us-0.22.zip https://alphacephei.com/vosk/models/vosk-model-en-us-0.22.zip
 
