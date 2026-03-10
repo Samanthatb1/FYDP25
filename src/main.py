@@ -58,7 +58,7 @@ def start_detection_threads(command_queue):
 
 
 def start_audio_stream():
-    """Start the audio stream on a background thread."""
+    """Sets up the input stream, which captures 9600-sample (0.6 s) chunks of audio from the microphone."""
     # Use device 2 (USB audio CODEC) instead of default MacBook Pro Microphone
     with sd.InputStream(
         channels=1,
